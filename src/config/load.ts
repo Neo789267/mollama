@@ -14,6 +14,7 @@ import type {
   ModelRequestDefaults,
   ModelsConfig,
   OllamaConfig,
+  ReasoningFieldName,
   ReasoningHistoryConfig,
   ModelSupportFlags,
   RetryConfig,
@@ -222,12 +223,23 @@ function loadFrontendProfile(value: unknown, fieldName: string): FrontendProfile
     (guidance, index) => loadFrontendToolGuidance(guidance, `${fieldName}.toolGuidance[${index}]`),
   );
 
+  let reasoningCompat: ReasoningFieldName | undefined;
+  if (value.reasoningCompat !== undefined) {
+    const raw = asString(value.reasoningCompat, `${fieldName}.reasoningCompat`);
+    assert(
+      raw === 'thinking' || raw === 'reasoning_content',
+      `${fieldName}.reasoningCompat must be one of: thinking, reasoning_content`,
+    );
+    reasoningCompat = raw;
+  }
+
   return {
     userAgentPattern,
     requestDefaults,
     payloadOverrides,
     messages,
     toolGuidance,
+    reasoningCompat,
   };
 }
 
@@ -324,6 +336,21 @@ function loadModelDefinitionConfig(value: unknown, fieldName: string): ModelDefi
   };
 }
 
+const DEFAULT_THINKING_FIELD: ReasoningFieldName = 'reasoning_content';
+
+function loadThinkingField(value: unknown, fieldName: string): ReasoningFieldName {
+  if (value === undefined) {
+    return DEFAULT_THINKING_FIELD;
+  }
+
+  const raw = asString(value, fieldName);
+  assert(
+    raw === 'thinking' || raw === 'reasoning_content',
+    `${fieldName} must be one of: thinking, reasoning_content`,
+  );
+  return raw;
+}
+
 function loadProviderMap(value: unknown, globalProxyUrl?: string): ModelProviderMap {
   assert(isRecord(value), 'providers must be an object');
   const entries = Object.entries(value);
@@ -344,6 +371,7 @@ function loadProviderMap(value: unknown, globalProxyUrl?: string): ModelProvider
       providerName,
       {
         upstream: loadUpstreamConfig(providerValue.upstream, `providers.${providerName}.upstream`, globalProxyUrl),
+        thinkingField: loadThinkingField(providerValue.thinkingField, `providers.${providerName}.thinkingField`),
         models,
       },
     ];

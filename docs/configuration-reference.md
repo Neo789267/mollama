@@ -24,12 +24,14 @@ The system config path defaults to `config/system.json` and can be overridden wi
   - [proxyUrl (Global)](#proxyurl-global)
   - [defaults](#defaults)
   - [providers](#providers)
+    - [thinkingField](#thinkingfield)
     - [upstream](#upstream)
     - [models](#models)
 - [Parameter Merge Order](#parameter-merge-order)
 - [Secret Resolution](#secret-resolution)
 - [Proxy Configuration](#proxy-configuration)
 - [Frontend Profile Behavior](#frontend-profile-behavior)
+- [reasoningCompat](#reasoningcompat)
 - [Thinking Mode & Reasoning History](#thinking-mode--reasoning-history)
 - [Complete Examples](#complete-examples)
 
@@ -117,6 +119,7 @@ Frontend profile selection is **automatic** — `mollama` matches the incoming r
 | `payloadOverrides` | `object` | ❌ | Parameters merged **after** the client payload (force-overrides). |
 | `messages` | `array` | ❌ | Prompt messages injected into every request. |
 | `toolGuidance` | `array` | ❌ | Description suffixes appended to tool definitions. |
+| `reasoningCompat` | `"thinking"` \| `"reasoning_content"` | ❌ | Controls reasoning field aliasing on `/v1/chat/completions`. See [reasoningCompat](#reasoningcompat). |
 
 #### requestDefaults vs payloadOverrides
 
@@ -283,22 +286,41 @@ Global default parameters applied to **every** model request before model-specif
 
 A map of named upstream providers. Each key is a provider name referenced by models. At least one provider is required.
 
-Each provider contains an `upstream` configuration and a `models` array.
+Each provider contains an `upstream` configuration, a `thinkingField` setting, and a `models` array.
 
 ```json
 {
   "providers": {
     "deepseek": {
+      "thinkingField": "reasoning_content",
       "upstream": { ... },
       "models": [ ... ]
     },
     "kimi": {
+      "thinkingField": "reasoning_content",
       "upstream": { ... },
       "models": [ ... ]
     }
   }
 }
 ```
+
+#### thinkingField
+
+| Type | Required | Default | Description |
+|------|----------|---------|-------------|
+| `"reasoning_content"` \| `"thinking"` | ❌ | `"reasoning_content"` | Field name this provider uses for reasoning / chain-of-thought content in chat completion responses. |
+
+Different providers use different field names for reasoning content:
+
+| Provider | Field |
+|----------|-------|
+| DeepSeek | `reasoning_content` |
+| Kimi | `reasoning_content` |
+| Anthropic (via OpenRouter) | `thinking` |
+| Local Ollama | `thinking` |
+
+This setting tells mollama which field to read from upstream responses. Combined with the frontend-level `reasoningCompat` setting, mollama can add the appropriate alias for the client. See [reasoningCompat](#reasoningcompat) for details.
 
 #### upstream
 
@@ -554,6 +576,50 @@ The active profile affects every chat completion request:
 4. **`toolGuidance`** — appends `descriptionSuffix` to matching tool definitions. Deduplicated at the paragraph level.
 
 If no profile matches, no frontend-specific behavior is applied.
+
+---
+
+## reasoningCompat
+
+The `reasoningCompat` field on a frontend profile controls which field name the client expects for reasoning / chain-of-thought content in `/v1/chat/completions` responses.
+
+Different clients expect different field names:
+
+| Client | Expected field |
+|--------|---------------|
+| GitHub Copilot Chat | `thinking` |
+| Cursor, Continue, Cline | `reasoning_content` |
+| OpenAI official SDK | `reasoning_content` |
+
+### Values
+
+| Value | Behavior |
+|-------|----------|
+| `"thinking"` | Adds a `thinking` alias when upstream returns `reasoning_content`. Best for Copilot. |
+| `"reasoning_content"` | Adds a `reasoning_content` alias when upstream returns `thinking`. Best for Cursor/Continue/Cline. |
+| *(not set)* | No transformation — upstream fields pass through unchanged. |
+
+> **Note**: The original field is always preserved. The alias is **added**, not replaced.
+
+This works in conjunction with the provider-level `thinkingField` setting (see [models.json — providers](#providers)). When `thinkingField` and `reasoningCompat` differ, mollama adds the client-expected alias. When they match (or `reasoningCompat` is unset), no transformation occurs.
+
+### Example
+
+```json
+{
+  "frontends": {
+    "copilot": {
+      "userAgentPattern": "GitHubCopilotChat",
+      "reasoningCompat": "thinking",
+      "payloadOverrides": { "max_tokens": 16384 }
+    },
+    "cursor": {
+      "userAgentPattern": "Cursor",
+      "reasoningCompat": "reasoning_content"
+    }
+  }
+}
+```
 
 ---
 

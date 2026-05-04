@@ -19,8 +19,8 @@ import {
 } from './protocol/openai-to-ollama';
 import { forwardOpenAIChatCompletions, forwardOpenAIEmbeddings } from './upstream/client';
 import {
-  createReasoningContentToThinkingStream,
-  mapReasoningContentToThinkingTextBody,
+  createReasoningCompatStream,
+  mapReasoningCompatBody,
 } from './protocol/reasoning-compat';
 
 const MAX_BODY_SIZE = 10 * 1024 * 1024;
@@ -242,8 +242,12 @@ async function handleOpenAIChatCompletionsRoute(context: RequestContext): Promis
   const frontendProfile = resolveFrontendProfile(context.config, context.request);
 
   const forwarded = await forwardOpenAIChatCompletions(context.config, context.modelRegistry, parsedBody, frontendProfile);
+  const provider = context.config.models.providers[forwarded.model.provider];
+  const upstreamField = provider?.thinkingField ?? 'reasoning_content';
+  const clientField = frontendProfile?.reasoningCompat;
+
   if (forwarded.result.kind === 'stream') {
-    const outputBody = createReasoningContentToThinkingStream(forwarded.result.body);
+    const outputBody = createReasoningCompatStream(forwarded.result.body, upstreamField, clientField);
     context.response.writeHead(forwarded.result.statusCode, {
       'Content-Type': forwarded.result.headers['content-type'] ?? 'text/event-stream; charset=utf-8',
     });
@@ -251,7 +255,7 @@ async function handleOpenAIChatCompletionsRoute(context: RequestContext): Promis
     return forwarded.result.statusCode;
   }
 
-  const responseBody = mapReasoningContentToThinkingTextBody(forwarded.result.body);
+  const responseBody = mapReasoningCompatBody(forwarded.result.body, upstreamField, clientField);
   context.response.writeHead(forwarded.result.statusCode, {
     'Content-Type': forwarded.result.headers['content-type'] ?? 'application/json; charset=utf-8',
   });

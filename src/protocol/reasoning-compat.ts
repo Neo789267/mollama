@@ -1,24 +1,45 @@
 import { Readable, Transform, type TransformCallback } from 'node:stream';
 import { StringDecoder } from 'node:string_decoder';
 import { isRecord } from '../guards';
+import type { ReasoningFieldName } from '../types';
 
 /**
- * Mirrors `reasoning_content` as `thinking` in OpenAI-format responses.
- * This is needed for the /v1/chat/completions pass-through path where
- * upstream providers (DeepSeek, etc.) return `reasoning_content` but
- * Ollama-speaking clients expect `thinking`.
+ * Reasoning field compatibility layer for the /v1/chat/completions pass-through.
+ *
+ * Different providers return reasoning content under different field names
+ * (e.g. DeepSeek → `reasoning_content`, Anthropic → `thinking`), and different
+ * clients expect different field names (e.g. Copilot → `thinking`,
+ * Cursor/Continue → `reasoning_content`).
+ *
+ * This module adds an **alias** of the client-expected field when the upstream
+ * field differs from what the client expects.  The original upstream field is
+ * always preserved.
  */
 
-function mirrorReasoningContentAsThinking(value: Record<string, unknown>): boolean {
-  if (typeof value.reasoning_content !== 'string' || typeof value.thinking === 'string') {
+// ── Core mirror logic ──────────────────────────────────────────────────
+
+function mirrorField(
+  value: Record<string, unknown>,
+  from: ReasoningFieldName,
+  to: ReasoningFieldName,
+): boolean {
+  if (typeof value[from] !== 'string' || typeof value[to] === 'string') {
     return false;
   }
 
-  value.thinking = value.reasoning_content;
+  value[to] = value[from];
   return true;
 }
 
-function mapChoicesReasoningContentToThinking(payload: unknown): boolean {
+type MirrorFn = (value: Record<string, unknown>) => boolean;
+
+function buildMirrorFn(from: ReasoningFieldName, to: ReasoningFieldName): MirrorFn {
+  return (value) => mirrorField(value, from, to);
+}
+
+// ── OpenAI choices traversal ───────────────────────────────────────────
+
+function mapChoices(payload: unknown, mirrorFn: MirrorFn): boolean {
   if (!isRecord(payload) || !Array.isArray((payload as Record<string, unknown>).choices)) {
     return false;
   }
@@ -29,19 +50,20 @@ function mapChoicesReasoningContentToThinking(payload: unknown): boolean {
     if (!isRecord(choice)) {
       continue;
     }
-
     if (isRecord(choice.delta)) {
-      changed = mirrorReasoningContentAsThinking(choice.delta) || changed;
+      changed = mirrorFn(choice.delta) || changed;
     }
     if (isRecord(choice.message)) {
-      changed = mirrorReasoningContentAsThinking(choice.message) || changed;
+      changed = mirrorFn(choice.message) || changed;
     }
   }
 
   return changed;
 }
 
-function rewriteSseEvent(rawEvent: string): string {
+// ── SSE rewriting ──────────────────────────────────────────────────────
+
+function rewriteSseEvent(rawEvent: string, mirrorFn: MirrorFn): string {
   const lines = rawEvent.split('\n');
   const dataLines: string[] = [];
   const passthroughLines: string[] = [];
@@ -51,7 +73,6 @@ function rewriteSseEvent(rawEvent: string): string {
       dataLines.push(line.slice(5).trimStart());
       continue;
     }
-
     passthroughLines.push(line);
   }
 
@@ -66,7 +87,7 @@ function rewriteSseEvent(rawEvent: string): string {
 
   try {
     const parsed = JSON.parse(eventPayload) as unknown;
-    if (!mapChoicesReasoningContentToThinking(parsed)) {
+    if (!mapChoices(parsed, mirrorFn)) {
       return `${rawEvent}\n\n`;
     }
 
@@ -77,10 +98,17 @@ function rewriteSseEvent(rawEvent: string): string {
   }
 }
 
-class ReasoningContentToThinkingStream extends Transform {
-  private readonly decoder = new StringDecoder('utf8');
+// ── Stream transform ───────────────────────────────────────────────────
 
+class ReasoningCompatStream extends Transform {
+  private readonly decoder = new StringDecoder('utf8');
+  private readonly mirrorFn: MirrorFn;
   private sseBuffer = '';
+
+  constructor(mirrorFn: MirrorFn) {
+    super();
+    this.mirrorFn = mirrorFn;
+  }
 
   _transform(chunk: Buffer | string, _encoding: BufferEncoding, callback: TransformCallback): void {
     const text = typeof chunk === 'string' ? chunk : this.decoder.write(chunk);
@@ -90,7 +118,7 @@ class ReasoningContentToThinkingStream extends Transform {
     while (separatorIndex !== -1) {
       const rawEvent = this.sseBuffer.slice(0, separatorIndex);
       this.sseBuffer = this.sseBuffer.slice(separatorIndex + 2);
-      this.push(rewriteSseEvent(rawEvent));
+      this.push(rewriteSseEvent(rawEvent, this.mirrorFn));
       separatorIndex = this.sseBuffer.indexOf('\n\n');
     }
 
@@ -104,7 +132,7 @@ class ReasoningContentToThinkingStream extends Transform {
     }
 
     if (this.sseBuffer.length > 0) {
-      this.push(rewriteSseEvent(this.sseBuffer));
+      this.push(rewriteSseEvent(this.sseBuffer, this.mirrorFn));
       this.sseBuffer = '';
     }
 
@@ -112,8 +140,38 @@ class ReasoningContentToThinkingStream extends Transform {
   }
 }
 
-export function createReasoningContentToThinkingStream(body: Readable): Readable {
-  const transform = new ReasoningContentToThinkingStream();
+// ── Public API ─────────────────────────────────────────────────────────
+
+/**
+ * Determines whether a reasoning field alias is needed and, if so, returns
+ * the mirror function.  Returns `undefined` when no transformation is required.
+ */
+function resolveMirror(
+  upstreamField: ReasoningFieldName,
+  clientField: ReasoningFieldName | undefined,
+): MirrorFn | undefined {
+  if (!clientField || upstreamField === clientField) {
+    return undefined;
+  }
+  return buildMirrorFn(upstreamField, clientField);
+}
+
+/**
+ * Creates a stream transform that adds a client-expected reasoning field
+ * alias when the upstream field name differs.  Returns the original stream
+ * unchanged when no transformation is needed.
+ */
+export function createReasoningCompatStream(
+  body: Readable,
+  upstreamField: ReasoningFieldName,
+  clientField: ReasoningFieldName | undefined,
+): Readable {
+  const mirrorFn = resolveMirror(upstreamField, clientField);
+  if (!mirrorFn) {
+    return body;
+  }
+
+  const transform = new ReasoningCompatStream(mirrorFn);
 
   body.once('error', (error) => {
     transform.destroy(error);
@@ -128,7 +186,21 @@ export function createReasoningContentToThinkingStream(body: Readable): Readable
   return transform;
 }
 
-export function mapReasoningContentToThinkingTextBody(body: string): string {
+/**
+ * Adds a client-expected reasoning field alias in a non-streaming JSON body
+ * when the upstream field name differs.  Returns the original body unchanged
+ * when no transformation is needed.
+ */
+export function mapReasoningCompatBody(
+  body: string,
+  upstreamField: ReasoningFieldName,
+  clientField: ReasoningFieldName | undefined,
+): string {
+  const mirrorFn = resolveMirror(upstreamField, clientField);
+  if (!mirrorFn) {
+    return body;
+  }
+
   const trimmed = body.trim();
   if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
     return body;
@@ -136,7 +208,7 @@ export function mapReasoningContentToThinkingTextBody(body: string): string {
 
   try {
     const parsed = JSON.parse(body) as unknown;
-    if (!mapChoicesReasoningContentToThinking(parsed)) {
+    if (!mapChoices(parsed, mirrorFn)) {
       return body;
     }
 

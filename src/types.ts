@@ -50,12 +50,24 @@ export interface FrontendToolGuidance {
   descriptionSuffix: string;
 }
 
+/**
+ * Recognized field names that carry reasoning / chain-of-thought content
+ * in OpenAI-compatible chat completion responses.
+ *
+ * Different providers use different names:
+ *   - DeepSeek, Kimi, etc. → `reasoning_content`
+ *   - Anthropic (via OpenRouter), local Ollama → `thinking`
+ */
+export type ReasoningFieldName = 'reasoning_content' | 'thinking';
+
 export interface FrontendProfile {
   userAgentPattern?: string;
   requestDefaults: ModelRequestDefaults;
   payloadOverrides: ModelRequestDefaults;
   messages: FrontendPromptMessage[];
   toolGuidance: FrontendToolGuidance[];
+  /** Field name the client expects for reasoning content (e.g. Copilot → "thinking"). */
+  reasoningCompat?: ReasoningFieldName;
 }
 
 export type FrontendMap = Record<string, FrontendProfile>;
@@ -121,6 +133,8 @@ export interface ModelDefinitionConfig {
 
 export interface ModelProviderConfig {
   upstream: UpstreamConfig;
+  /** Field name this provider uses for reasoning content in responses. Default: "reasoning_content". */
+  thinkingField: ReasoningFieldName;
   models: ModelDefinitionConfig[];
 }
 
