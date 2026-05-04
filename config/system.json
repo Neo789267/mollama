@@ -1,0 +1,49 @@
+{
+  "server": {
+    "host": "127.0.0.1",
+    "port": 11434
+  },
+  "ollama": {
+    "version": "0.6.4"
+  },
+  "modelsConfigPath": "./models.json",
+  "frontends": {
+    "copilot": {
+      "userAgentPattern": "GitHubCopilotChat",
+      "payloadOverrides": {
+        "max_tokens": 16384
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "This frontend is sensitive to large file-edit tool calls. Prefer one file per tool call, emit a short progress update before writing, and split large changes into follow-up calls."
+        }
+      ],
+      "toolGuidance": [
+        {
+          "target": "file-tools",
+          "descriptionSuffix": "This frontend accepts file updates most reliably when each tool call changes a single file. If multiple files are needed, create them through separate follow-up calls."
+        }
+      ]
+    },
+    "opencode": {
+      "requestDefaults": {
+        "max_tokens": 16384
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Keep file creation and edit tool calls incremental so large work can be delivered in several smaller steps when needed."
+        }
+      ]
+    }
+  },
+  "logging": {
+    "level": "debug",
+    "logRequests": true,
+    "redactHeaders": [
+      "authorization",
+      "api-key"
+    ]
+  }
+}

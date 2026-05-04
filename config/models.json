@@ -1,0 +1,227 @@
+{
+  "defaults": {
+    "stream": true
+  },
+  "providers": {
+    "deepseek": {
+      "upstream": {
+        "baseUrl": "https://api.deepseek.com",
+        "apiKey": "env:DEEPSEEK_API_KEY",
+        "timeoutMs": 60000,
+        "retry": {
+          "attempts": 1,
+          "backoffMs": 150,
+          "retryOnStatusCodes": [429, 500, 502, 503, 504]
+        },
+        "headers": {}
+      },
+      "models": [
+        {
+          "id": "deepseek-v4-flash-local",
+          "displayName": "DeepSeek V4 Flash",
+          "targetModel": "deepseek-v4-flash",
+          "contextWindow": 1000000,
+          "maxOutputTokens": 384000,
+          "supports": {
+            "tools": true,
+            "vision": false
+          },
+          "parameters": {
+            "thinking": {
+              "type": "enabled"
+            },
+            "reasoning_effort": "max"
+          },
+          "reasoningHistory": {
+            "mode": "inject-empty"
+          },
+          "payloadOverrides": {},
+          "payloadOverridesByThinking": {}
+        },
+        {
+          "id": "deepseek-v4-pro-local",
+          "displayName": "DeepSeek V4 Pro",
+          "targetModel": "deepseek-v4-pro",
+          "contextWindow": 1000000,
+          "maxOutputTokens": 384000,
+          "supports": {
+            "tools": true,
+            "vision": false
+          },
+          "parameters": {
+            "thinking": {
+              "type": "enabled"
+            },
+            "reasoning_effort": "max"
+          },
+          "reasoningHistory": {
+            "mode": "inject-empty"
+          },
+          "payloadOverrides": {},
+          "payloadOverridesByThinking": {}
+        }
+      ]
+    },
+    "kimi": {
+      "upstream": {
+        "baseUrl": "https://api.moonshot.cn/v1",
+        "apiKey": "env:KIMI_API_KEY",
+        "timeoutMs": 60000,
+        "retry": {
+          "attempts": 1,
+          "backoffMs": 150,
+          "retryOnStatusCodes": [429, 500, 502, 503, 504]
+        },
+        "headers": {}
+      },
+      "models": [
+        {
+          "id": "kimi-k2-6-local",
+          "displayName": "Kimi K2.6",
+          "targetModel": "kimi-k2.6",
+          "contextWindow": 262144,
+          "maxOutputTokens": 16384,
+          "supports": {
+            "tools": true,
+            "vision": true
+          },
+          "parameters": {
+            "thinking": {
+              "type": "enabled"
+            }
+          },
+          "payloadOverrides": {
+            "top_p": 0.95,
+            "n": 1,
+            "presence_penalty": 0,
+            "frequency_penalty": 0
+          },
+          "payloadOverridesByThinking": {
+            "enabled": {
+              "temperature": 1
+            },
+            "disabled": {
+              "temperature": 0.6
+            }
+          },
+          "reasoningHistory": {
+            "mode": "none"
+          }
+        },
+        {
+          "id": "kimi-k2-5-local",
+          "displayName": "Kimi K2.5",
+          "targetModel": "kimi-k2.5",
+          "contextWindow": 262144,
+          "maxOutputTokens": 16384,
+          "supports": {
+            "tools": true,
+            "vision": true
+          },
+          "parameters": {
+            "thinking": {
+              "type": "enabled"
+            }
+          },
+          "payloadOverrides": {
+            "top_p": 0.95,
+            "n": 1,
+            "presence_penalty": 0,
+            "frequency_penalty": 0
+          },
+          "payloadOverridesByThinking": {
+            "enabled": {
+              "temperature": 1
+            },
+            "disabled": {
+              "temperature": 0.6
+            }
+          },
+          "reasoningHistory": {
+            "mode": "none"
+          }
+        }
+      ]
+    },
+    "mimo": {
+      "upstream": {
+        "baseUrl": "https://token-plan-cn.xiaomimimo.com/v1",
+        "apiKey": "env:MIMO_API_KEY",
+        "timeoutMs": 120000,
+        "retry": {
+          "attempts": 1,
+          "backoffMs": 150,
+          "retryOnStatusCodes": [429, 500, 502, 503, 504]
+        },
+        "headers": {
+          "api-key": ""
+        }
+      },
+      "models": [
+        {
+          "id": "mimo-v2-5-pro-local",
+          "displayName": "MiMo V2.5 Pro",
+          "targetModel": "mimo-v2.5-pro",
+          "contextWindow": 1048576,
+          "maxOutputTokens": 131072,
+          "supports": {
+            "tools": true,
+            "vision": true
+          },
+          "parameters": {
+            "thinking": {
+              "type": "enabled"
+            }
+          },
+          "payloadOverrides": {},
+          "payloadOverridesByThinking": {},
+          "reasoningHistory": {
+            "mode": "none"
+          }
+        },
+        {
+          "id": "mimo-v2-5-local",
+          "displayName": "MiMo V2.5",
+          "targetModel": "mimo-v2.5",
+          "contextWindow": 1048576,
+          "maxOutputTokens": 131072,
+          "supports": {
+            "tools": true,
+            "vision": true
+          },
+          "parameters": {
+            "thinking": {
+              "type": "enabled"
+            }
+          },
+          "payloadOverrides": {},
+          "payloadOverridesByThinking": {},
+          "reasoningHistory": {
+            "mode": "none"
+          }
+        },
+        {
+          "id": "mimo-v2-flash-local",
+          "displayName": "MiMo V2 Flash",
+          "targetModel": "mimo-v2-flash",
+          "contextWindow": 262144,
+          "maxOutputTokens": 65536,
+          "supports": {
+            "tools": true,
+            "vision": true
+          },
+          "parameters": {
+            "thinking": {
+              "type": "disabled"
+            }
+          },
+          "payloadOverrides": {},
+          "payloadOverridesByThinking": {},
+          "reasoningHistory": {
+            "mode": "none"
+          }
+        }
+      ]
+    }
+  }
+}

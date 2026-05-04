@@ -1,0 +1,29 @@
+{
+  "name": "mollama",
+  "version": "0.1.0",
+  "description": "High-performance Ollama protocol proxy over remote OpenAI-compatible providers",
+  "main": "dist/cli.js",
+  "types": "dist/cli.d.ts",
+  "bin": {
+    "mollama": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "start": "node dist/cli.js start",
+    "validate-config": "node dist/cli.js validate-config",
+    "sync:test-env": "npm run build && node scripts/sync-test-env.cjs",
+    "test": "npm run build && node --test test/**/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "undici": "^6.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.17",
+    "typescript": "^5.8.3"
+  }
+}

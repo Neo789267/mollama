@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment & secrets
+.env
+.env.*
+api-key/
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor
+.vscode/settings.json
+*.code-workspace
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test artifacts
+coverage/
+
+# Lock file (optional: uncomment if you prefer not to track it)
+# package-lock.json
