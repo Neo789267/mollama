@@ -1,6 +1,6 @@
 {
   "name": "mollama",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "High-performance Ollama protocol proxy over remote OpenAI-compatible providers",
   "main": "dist/cli.js",
   "types": "dist/cli.d.ts",
