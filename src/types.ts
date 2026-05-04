@@ -127,6 +127,7 @@ export interface ModelProviderConfig {
 export type ModelProviderMap = Record<string, ModelProviderConfig>;
 
 export interface ModelsConfig {
+  proxyUrl?: string;
   defaults: ModelRequestDefaults;
   providers: ModelProviderMap;
   models: ModelDefinition[];

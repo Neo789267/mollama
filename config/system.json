@@ -39,8 +39,8 @@
     }
   },
   "logging": {
-    "level": "debug",
-    "logRequests": true,
+    "level": "info",
+    "logRequests": false,
     "redactHeaders": [
       "authorization",
       "api-key"

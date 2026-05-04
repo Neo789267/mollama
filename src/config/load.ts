@@ -138,10 +138,12 @@ function loadOllamaConfig(value: unknown): OllamaConfig {
   };
 }
 
-function loadUpstreamConfig(value: unknown, fieldName: string): UpstreamConfig {
+function loadUpstreamConfig(value: unknown, fieldName: string, globalProxyUrl?: string): UpstreamConfig {
   assert(isRecord(value), `${fieldName} must be an object`);
   const apiKey = value.apiKey === undefined ? undefined : asString(value.apiKey, `${fieldName}.apiKey`);
-  const proxyUrl = value.proxyUrl === undefined ? undefined : asString(value.proxyUrl, `${fieldName}.proxyUrl`);
+  const proxyUrl = value.proxyUrl === undefined
+    ? globalProxyUrl
+    : asString(value.proxyUrl, `${fieldName}.proxyUrl`);
   return {
     baseUrl: asString(value.baseUrl, `${fieldName}.baseUrl`).replace(/\/+$/, ''),
     apiKey,
@@ -322,7 +324,7 @@ function loadModelDefinitionConfig(value: unknown, fieldName: string): ModelDefi
   };
 }
 
-function loadProviderMap(value: unknown): ModelProviderMap {
+function loadProviderMap(value: unknown, globalProxyUrl?: string): ModelProviderMap {
   assert(isRecord(value), 'providers must be an object');
   const entries = Object.entries(value);
   assert(entries.length > 0, 'providers must contain at least one provider');
@@ -341,7 +343,7 @@ function loadProviderMap(value: unknown): ModelProviderMap {
     return [
       providerName,
       {
-        upstream: loadUpstreamConfig(providerValue.upstream, `providers.${providerName}.upstream`),
+        upstream: loadUpstreamConfig(providerValue.upstream, `providers.${providerName}.upstream`, globalProxyUrl),
         models,
       },
     ];
@@ -365,10 +367,12 @@ function loadModelsConfig(value: unknown): ModelsConfig {
   assert(isRecord(value), 'models config root must be an object');
   assert(value.models === undefined, 'Top-level models array has been replaced by providers.*.models');
 
-  const providers = loadProviderMap(value.providers);
+  const globalProxyUrl = value.proxyUrl === undefined ? undefined : asString(value.proxyUrl, 'proxyUrl');
+  const providers = loadProviderMap(value.providers, globalProxyUrl);
   const models = flattenProviderModels(providers);
 
   return {
+    proxyUrl: globalProxyUrl,
     defaults: loadModelDefaults(value.defaults),
     providers,
     models,
@@ -415,10 +419,13 @@ export function loadAppConfig(systemConfigPathInput: string): AppConfig {
   const normalizedModels = flattenProviderModels(resolvedProviders);
   validateModelReferences(normalizedModels);
 
+  const resolvedGlobalProxyUrl = normalizeProxyUrl(resolveSecret(modelsConfig.proxyUrl), 'proxyUrl');
+
   return {
     system: systemConfig,
     models: {
       ...modelsConfig,
+      proxyUrl: resolvedGlobalProxyUrl,
       providers: resolvedProviders,
       models: normalizedModels,
     },

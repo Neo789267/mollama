@@ -1,4 +1,5 @@
 {
+  "proxyUrl": "env:HTTPS_PROXY",
   "defaults": {
     "stream": true
   },
