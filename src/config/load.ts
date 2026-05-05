@@ -139,11 +139,11 @@ function loadOllamaConfig(value: unknown): OllamaConfig {
   };
 }
 
-function loadUpstreamConfig(value: unknown, fieldName: string, globalProxyUrl?: string): UpstreamConfig {
+function loadUpstreamConfig(value: unknown, fieldName: string): UpstreamConfig {
   assert(isRecord(value), `${fieldName} must be an object`);
   const apiKey = value.apiKey === undefined ? undefined : asString(value.apiKey, `${fieldName}.apiKey`);
   const proxyUrl = value.proxyUrl === undefined
-    ? globalProxyUrl
+    ? undefined
     : asString(value.proxyUrl, `${fieldName}.proxyUrl`);
   return {
     baseUrl: asString(value.baseUrl, `${fieldName}.baseUrl`).replace(/\/+$/, ''),
@@ -351,7 +351,7 @@ function loadThinkingField(value: unknown, fieldName: string): ReasoningFieldNam
   return raw;
 }
 
-function loadProviderMap(value: unknown, globalProxyUrl?: string): ModelProviderMap {
+function loadProviderMap(value: unknown): ModelProviderMap {
   assert(isRecord(value), 'providers must be an object');
   const entries = Object.entries(value);
   assert(entries.length > 0, 'providers must contain at least one provider');
@@ -370,7 +370,7 @@ function loadProviderMap(value: unknown, globalProxyUrl?: string): ModelProvider
     return [
       providerName,
       {
-        upstream: loadUpstreamConfig(providerValue.upstream, `providers.${providerName}.upstream`, globalProxyUrl),
+        upstream: loadUpstreamConfig(providerValue.upstream, `providers.${providerName}.upstream`),
         thinkingField: loadThinkingField(providerValue.thinkingField, `providers.${providerName}.thinkingField`),
         models,
       },
@@ -396,7 +396,7 @@ function loadModelsConfig(value: unknown): ModelsConfig {
   assert(value.models === undefined, 'Top-level models array has been replaced by providers.*.models');
 
   const globalProxyUrl = value.proxyUrl === undefined ? undefined : asString(value.proxyUrl, 'proxyUrl');
-  const providers = loadProviderMap(value.providers, globalProxyUrl);
+  const providers = loadProviderMap(value.providers);
   const models = flattenProviderModels(providers);
 
   return {
@@ -418,6 +418,20 @@ function resolveSecret(value: string | undefined): string | undefined {
   return envValue;
 }
 
+function resolveSecretOptional(value: string | undefined, fieldName: string): string | undefined {
+  if (!value || !value.startsWith('env:')) {
+    return value;
+  }
+
+  const envKey = value.slice(4);
+  const envValue = process.env[envKey];
+  if (!envValue) {
+    console.warn(`[mollama] Warning: Environment variable ${envKey} for ${fieldName} is not set. Continuing without proxy.`);
+    return undefined;
+  }
+  return envValue;
+}
+
 export function resolveConfigPath(inputPath: string): string {
   return resolve(process.cwd(), inputPath);
 }
@@ -432,6 +446,9 @@ export function loadAppConfig(systemConfigPathInput: string): AppConfig {
 
   const modelsConfig = loadModelsConfig(readJsonFile(modelsConfigPath));
 
+  // Resolve global proxyUrl once — warn only once if env var is missing
+  const resolvedGlobalProxyUrl = normalizeProxyUrl(resolveSecretOptional(modelsConfig.proxyUrl, 'proxyUrl'), 'proxyUrl');
+
   const resolvedProviders: ModelProviderMap = Object.fromEntries(Object.entries(modelsConfig.providers).map(([providerName, provider]) => [
     providerName,
     {
@@ -439,15 +456,16 @@ export function loadAppConfig(systemConfigPathInput: string): AppConfig {
       upstream: {
         ...provider.upstream,
         apiKey: resolveSecret(provider.upstream.apiKey),
-        proxyUrl: normalizeProxyUrl(resolveSecret(provider.upstream.proxyUrl), `providers.${providerName}.upstream.proxyUrl`),
+        // Per-provider proxyUrl is resolved independently; if not set, inherit the already-resolved global value
+        proxyUrl: provider.upstream.proxyUrl !== undefined
+          ? normalizeProxyUrl(resolveSecretOptional(provider.upstream.proxyUrl, `providers.${providerName}.upstream.proxyUrl`), `providers.${providerName}.upstream.proxyUrl`)
+          : resolvedGlobalProxyUrl,
       },
     },
   ]));
 
   const normalizedModels = flattenProviderModels(resolvedProviders);
   validateModelReferences(normalizedModels);
-
-  const resolvedGlobalProxyUrl = normalizeProxyUrl(resolveSecret(modelsConfig.proxyUrl), 'proxyUrl');
 
   return {
     system: systemConfig,
