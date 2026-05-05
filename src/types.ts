@@ -15,6 +15,8 @@ export interface UpstreamConfig {
   apiKey?: string;
   proxyUrl?: string;
   timeoutMs: number;
+  /** Maximum idle time between stream chunks before the connection is closed. Defaults to timeoutMs when omitted. */
+  streamIdleTimeoutMs: number;
   retry: RetryConfig;
   headers: Record<string, string>;
 }

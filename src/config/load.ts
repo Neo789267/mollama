@@ -150,6 +150,9 @@ function loadUpstreamConfig(value: unknown, fieldName: string): UpstreamConfig {
     apiKey,
     proxyUrl,
     timeoutMs: asNumber(value.timeoutMs, `${fieldName}.timeoutMs`),
+    streamIdleTimeoutMs: value.streamIdleTimeoutMs !== undefined
+      ? asNumber(value.streamIdleTimeoutMs, `${fieldName}.streamIdleTimeoutMs`)
+      : asNumber(value.timeoutMs, `${fieldName}.timeoutMs`),
     retry: loadRetryConfig(value.retry, `${fieldName}.retry`),
     headers: normalizeHeaders(value.headers, `${fieldName}.headers`),
   };
@@ -520,6 +523,7 @@ export function initConfig(targetDirectoryInput: string): { systemConfigPath: st
           baseUrl: 'https://api.openai.com/v1',
           apiKey: 'REPLACE_WITH_OPENAI_API_KEY',
           timeoutMs: 60000,
+          streamIdleTimeoutMs: 120000,
           retry: {
             attempts: 0,
             backoffMs: 0,

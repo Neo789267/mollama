@@ -251,6 +251,15 @@ async function handleOpenAIChatCompletionsRoute(context: RequestContext): Promis
     context.response.writeHead(forwarded.result.statusCode, {
       'Content-Type': forwarded.result.headers['content-type'] ?? 'text/event-stream; charset=utf-8',
     });
+    outputBody.on('error', (error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      context.logger.error('request.stream_error', { requestId: context.requestId, message });
+      if (!context.response.headersSent) {
+        sendError(context.response, badGateway(message, 'stream_write_failed'));
+      } else {
+        context.response.destroy();
+      }
+    });
     outputBody.pipe(context.response);
     return forwarded.result.statusCode;
   }

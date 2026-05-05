@@ -1,6 +1,6 @@
 {
   "name": "mollama",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Ollama protocol compatibility proxy — wrap DeepSeek, Kimi, Qwen, GPT, Claude and any OpenAI-compatible LLM behind a local Ollama service for GitHub Copilot, OpenCode, Continue and more",
   "main": "dist/cli.js",
   "types": "dist/cli.d.ts",

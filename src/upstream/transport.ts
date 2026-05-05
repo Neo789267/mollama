@@ -212,7 +212,7 @@ export async function sendJsonRequestToUpstream(
           statusCode: response.status,
           headers: responseHeaders,
           body: attachProxyCleanup(
-            attachStreamIdleTimeout(Readable.fromWeb(response.body as globalThis.ReadableStream), upstream.timeoutMs),
+            attachStreamIdleTimeout(Readable.fromWeb(response.body as globalThis.ReadableStream), upstream.streamIdleTimeoutMs),
             proxyAgent,
           ),
         };

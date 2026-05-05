@@ -10,6 +10,7 @@
         "baseUrl": "https://api.deepseek.com",
         "apiKey": "env:DEEPSEEK_API_KEY",
         "timeoutMs": 60000,
+        "streamIdleTimeoutMs": 300000,
         "retry": {
           "attempts": 1,
           "backoffMs": 150,
@@ -70,6 +71,7 @@
         "baseUrl": "https://api.moonshot.cn/v1",
         "apiKey": "env:KIMI_API_KEY",
         "timeoutMs": 60000,
+        "streamIdleTimeoutMs": 300000,
         "retry": {
           "attempts": 1,
           "backoffMs": 150,
@@ -152,6 +154,7 @@
         "baseUrl": "https://token-plan-cn.xiaomimimo.com/v1",
         "apiKey": "env:MIMO_API_KEY",
         "timeoutMs": 120000,
+        "streamIdleTimeoutMs": 300000,
         "retry": {
           "attempts": 1,
           "backoffMs": 150,
