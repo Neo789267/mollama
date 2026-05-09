@@ -2,9 +2,9 @@
 
 mollama uses two JSON configuration files:
 
-| File | Purpose |
-|------|---------|
-| **system.json** | Server, Ollama compatibility, frontend profiles, logging |
+| File            | Purpose                                                           |
+| --------------- | ----------------------------------------------------------------- |
+| **system.json** | Server, Ollama compatibility, frontend profiles, logging          |
 | **models.json** | Global proxy, request defaults, provider upstreams, model catalog |
 
 The system config path defaults to `config/system.json` and can be overridden with `--config <path>`. The models config path is resolved relative to the system config directory via `modelsConfigPath`.
@@ -76,10 +76,10 @@ mollama start --config /path/to/system.json
 
 Controls the local HTTP server.
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `host` | `string` | ✅ | Bind address. Use `"127.0.0.1"` for local-only, `"0.0.0.0"` for all interfaces. |
-| `port` | `number` | ✅ | Listen port. Default Ollama port is `11434`. |
+| Field  | Type     | Required | Description                                                                     |
+| ------ | -------- | -------- | ------------------------------------------------------------------------------- |
+| `host` | `string` | ✅       | Bind address. Use `"127.0.0.1"` for local-only, `"0.0.0.0"` for all interfaces. |
+| `port` | `number` | ✅       | Listen port. Default Ollama port is `11434`.                                    |
 
 ```json
 {
@@ -94,9 +94,9 @@ Controls the local HTTP server.
 
 Controls the compatibility metadata that `mollama` reports on Ollama discovery endpoints.
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `version` | `string` | ❌ | `"0.6.4"` | Version returned by `GET /api/version`. Set this to the Ollama version your client expects. |
+| Field     | Type     | Required | Default   | Description                                                                                 |
+| --------- | -------- | -------- | --------- | ------------------------------------------------------------------------------------------- |
+| `version` | `string` | ❌       | `"0.6.4"` | Version returned by `GET /api/version`. Set this to the Ollama version your client expects. |
 
 ```json
 {
@@ -112,14 +112,14 @@ A map of named frontend profiles. Each profile can customize request behavior fo
 
 Frontend profile selection is **automatic** — `mollama` matches the incoming request's `User-Agent` header against each profile's `userAgentPattern`. The first match wins.
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `userAgentPattern` | `string` | ❌ | Substring to match against the `User-Agent` header. |
-| `requestDefaults` | `object` | ❌ | Default request parameters merged before the client payload. |
-| `payloadOverrides` | `object` | ❌ | Parameters merged **after** the client payload (force-overrides). |
-| `messages` | `array` | ❌ | Prompt messages injected into every request. |
-| `toolGuidance` | `array` | ❌ | Description suffixes appended to tool definitions. |
-| `reasoningCompat` | `"thinking"` \| `"reasoning_content"` | ❌ | Controls reasoning field aliasing on `/v1/chat/completions`. See [reasoningCompat](#reasoningcompat). |
+| Field              | Type                                  | Required | Description                                                                                           |
+| ------------------ | ------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| `userAgentPattern` | `string`                              | ❌       | Substring to match against the `User-Agent` header.                                                   |
+| `requestDefaults`  | `object`                              | ❌       | Default request parameters merged before the client payload.                                          |
+| `payloadOverrides` | `object`                              | ❌       | Parameters merged **after** the client payload (force-overrides).                                     |
+| `messages`         | `array`                               | ❌       | Prompt messages injected into every request.                                                          |
+| `toolGuidance`     | `array`                               | ❌       | Description suffixes appended to tool definitions.                                                    |
+| `reasoningCompat`  | `"thinking"` \| `"reasoning_content"` | ❌       | Controls reasoning field aliasing on `/v1/chat/completions`. See [reasoningCompat](#reasoningcompat). |
 
 #### requestDefaults vs payloadOverrides
 
@@ -132,28 +132,28 @@ Both accept any valid JSON object with OpenAI-compatible parameters (`stream`, `
 
 Each message is injected into the request's message array (after existing system messages, before non-system messages). Duplicate content is deduplicated.
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `role` | `"system"` \| `"user"` | ✅ | Message role. |
-| `content` | `string` | ✅ | Message content. |
+| Field     | Type                   | Required | Description      |
+| --------- | ---------------------- | -------- | ---------------- |
+| `role`    | `"system"` \| `"user"` | ✅       | Message role.    |
+| `content` | `string`               | ✅       | Message content. |
 
 #### toolGuidance
 
 Appends description text to matching tool definitions in the request.
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `target` | `"all-tools"` \| `"file-tools"` \| `"tool-names"` | ✅ | Which tools to match. |
-| `toolNames` | `string[]` | When `target` is `"tool-names"` | Specific tool names to match. |
-| `descriptionSuffix` | `string` | ✅ | Text appended to the tool's description. |
+| Field               | Type                                              | Required                        | Description                              |
+| ------------------- | ------------------------------------------------- | ------------------------------- | ---------------------------------------- |
+| `target`            | `"all-tools"` \| `"file-tools"` \| `"tool-names"` | ✅                              | Which tools to match.                    |
+| `toolNames`         | `string[]`                                        | When `target` is `"tool-names"` | Specific tool names to match.            |
+| `descriptionSuffix` | `string`                                          | ✅                              | Text appended to the tool's description. |
 
 **Target values:**
 
-| Target | Matches |
-|--------|---------|
-| `"all-tools"` | Every tool in the request. |
+| Target         | Matches                                                                                                        |
+| -------------- | -------------------------------------------------------------------------------------------------------------- |
+| `"all-tools"`  | Every tool in the request.                                                                                     |
 | `"file-tools"` | Tools whose names suggest file mutation (contain patterns like `create`+`file`, `edit`+`file`, `patch`, etc.). |
-| `"tool-names"` | Only tools listed in `toolNames`. |
+| `"tool-names"` | Only tools listed in `toolNames`.                                                                              |
 
 ```json
 {
@@ -193,9 +193,9 @@ Appends description text to matching tool definitions in the request.
 
 ### modelsConfigPath
 
-| Type | Required | Description |
-|------|----------|-------------|
-| `string` | ✅ | Path to the models config file. Resolved relative to the system config directory. |
+| Type     | Required | Description                                                                       |
+| -------- | -------- | --------------------------------------------------------------------------------- |
+| `string` | ✅       | Path to the models config file. Resolved relative to the system config directory. |
 
 ```json
 {
@@ -205,16 +205,16 @@ Appends description text to matching tool definitions in the request.
 
 ### logging
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `level` | `"silent"` \| `"error"` \| `"info"` \| `"debug"` | ✅ | — | Log verbosity level. |
-| `logRequests` | `boolean` | ❌ | `false` | Whether to log incoming HTTP requests. |
-| `redactHeaders` | `string[]` | ❌ | `[]` | Header names whose values are replaced with `[REDACTED]` in request logs. |
+| Field           | Type                                             | Required | Default | Description                                                               |
+| --------------- | ------------------------------------------------ | -------- | ------- | ------------------------------------------------------------------------- |
+| `level`         | `"silent"` \| `"error"` \| `"info"` \| `"debug"` | ✅       | —       | Log verbosity level.                                                      |
+| `logRequests`   | `boolean`                                        | ❌       | `false` | Whether to log incoming HTTP requests.                                    |
+| `redactHeaders` | `string[]`                                       | ❌       | `[]`    | Header names whose values are replaced with `[REDACTED]` in request logs. |
 
 ```json
 {
   "logging": {
-    "level": "info",
+    "level": "silent",
     "logRequests": false,
     "redactHeaders": ["authorization", "api-key"]
   }
@@ -223,12 +223,12 @@ Appends description text to matching tool definitions in the request.
 
 **Log levels:**
 
-| Level | Description |
-|-------|-------------|
-| `silent` | No output. |
-| `error` | Only errors. |
-| `info` | Startup info, request summaries, errors. |
-| `debug` | Full request/response details (verbose). |
+| Level    | Description                              |
+| -------- | ---------------------------------------- |
+| `silent` | No output.                               |
+| `error`  | Only errors.                             |
+| `info`   | Startup info, request summaries, errors. |
+| `debug`  | Full request/response details (verbose). |
 
 ---
 
@@ -244,9 +244,9 @@ Appends description text to matching tool definitions in the request.
 
 ### proxyUrl (Global)
 
-| Type | Required | Default | Description |
-|------|----------|---------|-------------|
-| `string` | ❌ | — | Global HTTP/HTTPS proxy URL applied to all providers that do not define their own `proxyUrl`. Supports `env:VAR_NAME` syntax. |
+| Type     | Required | Default | Description                                                                                                                   |
+| -------- | -------- | ------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `string` | ❌       | —       | Global HTTP/HTTPS proxy URL applied to all providers that do not define their own `proxyUrl`. Supports `env:VAR_NAME` syntax. |
 
 This is the **fallback** proxy. If a provider's `upstream.proxyUrl` is set, it takes priority. See [Proxy Configuration](#proxy-configuration) for details.
 
@@ -262,14 +262,14 @@ Global default parameters applied to **every** model request before model-specif
 
 > **Important:** `defaults` is a **request parameter template** — every field here is merged into the HTTP request body sent to the upstream API. Do not put non-API fields (like `proxyUrl`) here.
 
-| Common Field | Type | Description |
-|-------------|------|-------------|
-| `stream` | `boolean` | Whether to stream responses. |
-| `temperature` | `number` | Sampling temperature (0–2). |
-| `top_p` | `number` | Nucleus sampling threshold. |
-| `max_tokens` | `number` | Default max output tokens. |
-| `frequency_penalty` | `number` | Frequency penalty (-2 to 2). |
-| `presence_penalty` | `number` | Presence penalty (-2 to 2). |
+| Common Field        | Type      | Description                  |
+| ------------------- | --------- | ---------------------------- |
+| `stream`            | `boolean` | Whether to stream responses. |
+| `temperature`       | `number`  | Sampling temperature (0–2).  |
+| `top_p`             | `number`  | Nucleus sampling threshold.  |
+| `max_tokens`        | `number`  | Default max output tokens.   |
+| `frequency_penalty` | `number`  | Frequency penalty (-2 to 2). |
+| `presence_penalty`  | `number`  | Presence penalty (-2 to 2).  |
 
 ```json
 {
@@ -307,39 +307,39 @@ Each provider contains an `upstream` configuration, a `thinkingField` setting, a
 
 #### thinkingField
 
-| Type | Required | Default | Description |
-|------|----------|---------|-------------|
-| `"reasoning_content"` \| `"thinking"` | ❌ | `"reasoning_content"` | Field name this provider uses for reasoning / chain-of-thought content in chat completion responses. |
+| Type                                  | Required | Default               | Description                                                                                          |
+| ------------------------------------- | -------- | --------------------- | ---------------------------------------------------------------------------------------------------- |
+| `"reasoning_content"` \| `"thinking"` | ❌       | `"reasoning_content"` | Field name this provider uses for reasoning / chain-of-thought content in chat completion responses. |
 
 Different providers use different field names for reasoning content:
 
-| Provider | Field |
-|----------|-------|
-| DeepSeek | `reasoning_content` |
-| Kimi | `reasoning_content` |
-| Anthropic (via OpenRouter) | `thinking` |
-| Local Ollama | `thinking` |
+| Provider                   | Field               |
+| -------------------------- | ------------------- |
+| DeepSeek                   | `reasoning_content` |
+| Kimi                       | `reasoning_content` |
+| Anthropic (via OpenRouter) | `thinking`          |
+| Local Ollama               | `thinking`          |
 
 This setting tells mollama which field to read from upstream responses. Combined with the frontend-level `reasoningCompat` setting, mollama can add the appropriate alias for the client. See [reasoningCompat](#reasoningcompat) for details.
 
 #### upstream
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `baseUrl` | `string` | ✅ | Upstream API base URL (no trailing slash). |
-| `apiKey` | `string` | ❌ | API key. Supports `env:VAR_NAME` syntax to read from environment variables. |
-| `proxyUrl` | `string` | ❌ | HTTP/HTTPS proxy URL for this provider. Supports `env:VAR_NAME` syntax. Overrides the global `proxyUrl`. |
-| `timeoutMs` | `number` | ✅ | Request timeout in milliseconds. |
-| `retry` | `object` | ❌ | Retry configuration (see below). |
-| `headers` | `object` | ❌ | Extra headers sent with every request to this provider. |
+| Field       | Type     | Required | Description                                                                                              |
+| ----------- | -------- | -------- | -------------------------------------------------------------------------------------------------------- |
+| `baseUrl`   | `string` | ✅       | Upstream API base URL (no trailing slash).                                                               |
+| `apiKey`    | `string` | ❌       | API key. Supports `env:VAR_NAME` syntax to read from environment variables.                              |
+| `proxyUrl`  | `string` | ❌       | HTTP/HTTPS proxy URL for this provider. Supports `env:VAR_NAME` syntax. Overrides the global `proxyUrl`. |
+| `timeoutMs` | `number` | ✅       | Request timeout in milliseconds.                                                                         |
+| `retry`     | `object` | ❌       | Retry configuration (see below).                                                                         |
+| `headers`   | `object` | ❌       | Extra headers sent with every request to this provider.                                                  |
 
 ##### retry
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `attempts` | `number` | ✅ | `0` | Max retry attempts (non-negative integer). `0` = no retries. |
-| `backoffMs` | `number` | ✅ | `0` | Delay between retries in milliseconds. |
-| `retryOnStatusCodes` | `number[]` | ❌ | `[429, 500, 502, 503, 504]` | HTTP status codes that trigger a retry. |
+| Field                | Type       | Required | Default                     | Description                                                  |
+| -------------------- | ---------- | -------- | --------------------------- | ------------------------------------------------------------ |
+| `attempts`           | `number`   | ✅       | `0`                         | Max retry attempts (non-negative integer). `0` = no retries. |
+| `backoffMs`          | `number`   | ✅       | `0`                         | Delay between retries in milliseconds.                       |
+| `retryOnStatusCodes` | `number[]` | ❌       | `[429, 500, 502, 503, 504]` | HTTP status codes that trigger a retry.                      |
 
 ```json
 {
@@ -366,25 +366,25 @@ An array of model definitions under each provider. At least one model per provid
 
 ##### Model Definition
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `id` | `string` | ✅ | Unique model identifier. Used for lookup by clients. |
-| `displayName` | `string` | ❌ | Human-readable name shown in Ollama discovery APIs. Defaults to `id`. |
-| `targetModel` | `string` | ✅ | The actual model ID sent to the upstream provider. |
-| `contextWindow` | `number` | ✅ | Context window size in tokens. |
-| `maxOutputTokens` | `number` | ✅ | Maximum output tokens. Used as default `max_tokens` and as a hard cap. |
-| `supports` | `object` | ❌ | Capability flags (see below). |
-| `parameters` | `object` | ❌ | Per-model parameters merged into every request for this model. |
-| `payloadOverrides` | `object` | ❌ | Parameters force-applied after the client payload. |
-| `payloadOverridesByThinking` | `object` | ❌ | Conditional overrides based on thinking mode state. |
-| `reasoningHistory` | `object` | ❌ | Explicit handling for historical assistant messages that are missing `reasoning_content`. |
+| Field                        | Type     | Required | Description                                                                               |
+| ---------------------------- | -------- | -------- | ----------------------------------------------------------------------------------------- |
+| `id`                         | `string` | ✅       | Unique model identifier. Used for lookup by clients.                                      |
+| `displayName`                | `string` | ❌       | Human-readable name shown in Ollama discovery APIs. Defaults to `id`.                     |
+| `targetModel`                | `string` | ✅       | The actual model ID sent to the upstream provider.                                        |
+| `contextWindow`              | `number` | ✅       | Context window size in tokens.                                                            |
+| `maxOutputTokens`            | `number` | ✅       | Maximum output tokens. Used as default `max_tokens` and as a hard cap.                    |
+| `supports`                   | `object` | ❌       | Capability flags (see below).                                                             |
+| `parameters`                 | `object` | ❌       | Per-model parameters merged into every request for this model.                            |
+| `payloadOverrides`           | `object` | ❌       | Parameters force-applied after the client payload.                                        |
+| `payloadOverridesByThinking` | `object` | ❌       | Conditional overrides based on thinking mode state.                                       |
+| `reasoningHistory`           | `object` | ❌       | Explicit handling for historical assistant messages that are missing `reasoning_content`. |
 
 ##### supports
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `tools` | `boolean` | `false` | Whether the model supports tool/function calling. |
-| `vision` | `boolean` | `false` | Whether the model supports image input. |
+| Field    | Type      | Default | Description                                       |
+| -------- | --------- | ------- | ------------------------------------------------- |
+| `tools`  | `boolean` | `false` | Whether the model supports tool/function calling. |
+| `vision` | `boolean` | `false` | Whether the model supports image input.           |
 
 If a client sends a tool-calling request to a model with `tools: false`, or a vision request to a model with `vision: false`, the server returns a 400 error.
 
@@ -392,9 +392,9 @@ If a client sends a tool-calling request to a model with `tools: false`, or a vi
 
 Conditional payload overrides that apply based on the `thinking.type` field in the request.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `enabled` | `object` | Parameters applied when `thinking.type` is `"enabled"`. |
+| Field      | Type     | Description                                              |
+| ---------- | -------- | -------------------------------------------------------- |
+| `enabled`  | `object` | Parameters applied when `thinking.type` is `"enabled"`.  |
 | `disabled` | `object` | Parameters applied when `thinking.type` is `"disabled"`. |
 
 This is useful for providers like Kimi that require different `temperature` values depending on whether thinking is active.
@@ -481,11 +481,11 @@ After the merge order above, `mollama` applies the remaining thinking-specific c
 
 Any string value in `apiKey` or `proxyUrl` that starts with `env:` is resolved as an environment variable reference.
 
-| Value | Resolution |
-|-------|------------|
+| Value                  | Resolution                                                            |
+| ---------------------- | --------------------------------------------------------------------- |
 | `"env:OPENAI_API_KEY"` | Reads `process.env.OPENAI_API_KEY`. Fails if the variable is not set. |
-| `"sk-abc123..."` | Used as-is (literal string). |
-| `undefined` | Field is omitted. |
+| `"sk-abc123..."`       | Used as-is (literal string).                                          |
+| `undefined`            | Field is omitted.                                                     |
 
 ```json
 {
@@ -555,6 +555,7 @@ Set `proxyUrl` inside a provider's `upstream` to override the global proxy for t
 ```
 
 In this example:
+
 - **deepseek** → uses its own `http://127.0.0.1:7890` (per-provider takes priority)
 - **kimi** → no `proxyUrl` set, falls back to global `env:HTTPS_PROXY`
 
@@ -585,19 +586,19 @@ The `reasoningCompat` field on a frontend profile controls which field name the 
 
 Different clients expect different field names:
 
-| Client | Expected field |
-|--------|---------------|
-| GitHub Copilot Chat | `thinking` |
+| Client                  | Expected field      |
+| ----------------------- | ------------------- |
+| GitHub Copilot Chat     | `thinking`          |
 | Cursor, Continue, Cline | `reasoning_content` |
-| OpenAI official SDK | `reasoning_content` |
+| OpenAI official SDK     | `reasoning_content` |
 
 ### Values
 
-| Value | Behavior |
-|-------|----------|
-| `"thinking"` | Adds a `thinking` alias when upstream returns `reasoning_content`. Best for Copilot. |
+| Value                 | Behavior                                                                                           |
+| --------------------- | -------------------------------------------------------------------------------------------------- |
+| `"thinking"`          | Adds a `thinking` alias when upstream returns `reasoning_content`. Best for Copilot.               |
 | `"reasoning_content"` | Adds a `reasoning_content` alias when upstream returns `thinking`. Best for Cursor/Continue/Cline. |
-| *(not set)* | No transformation — upstream fields pass through unchanged. |
+| _(not set)_           | No transformation — upstream fields pass through unchanged.                                        |
 
 > **Note**: The original field is always preserved. The alias is **added**, not replaced.
 
@@ -656,6 +657,7 @@ Allows different parameter values depending on whether thinking is enabled or di
 ### Minimal Single-Provider Setup
 
 **system.json:**
+
 ```json
 {
   "server": {
@@ -675,6 +677,7 @@ Allows different parameter values depending on whether thinking is enabled or di
 ```
 
 **models.json:**
+
 ```json
 {
   "defaults": {
@@ -716,6 +719,7 @@ Allows different parameter values depending on whether thinking is enabled or di
 ### Multi-Provider with Global Proxy
 
 **models.json:**
+
 ```json
 {
   "proxyUrl": "env:HTTPS_PROXY",
@@ -814,5 +818,6 @@ Allows different parameter values depending on whether thinking is enabled or di
 ```
 
 In this example:
+
 - **deepseek** → uses the global `env:HTTPS_PROXY` (no per-provider `proxyUrl`)
 - **kimi** → uses its own `http://127.0.0.1:7890` (per-provider overrides global)
