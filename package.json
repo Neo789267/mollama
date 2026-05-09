@@ -10,8 +10,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
-    "start": "node dist/cli.js start",
-    "validate-config": "node dist/cli.js validate-config",
+    "start": "node -r dotenv/config dist/cli.js start",
+    "setup": "bash scripts/setup.sh",
+    "start-server": "bash scripts/start-server.sh",
+    "stop-server": "bash scripts/stop-server.sh",
+    "server-status": "bash scripts/server-status.sh",
+    "validate-config": "node -r dotenv/config dist/cli.js validate-config",
     "sync:test-env": "npm run build && node scripts/sync-test-env.cjs",
     "test": "npm run build && node --test test/**/*.test.js"
   },
@@ -20,7 +24,8 @@
   },
   "license": "MIT",
   "dependencies": {
-    "undici": "^6.25.0"
+    "undici": "^6.25.0",
+    "dotenv": "^16.1.4"
   },
   "devDependencies": {
     "@types/node": "^22.15.17",
