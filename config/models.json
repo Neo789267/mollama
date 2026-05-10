@@ -20,8 +20,51 @@
       },
       "models": [
         {
-          "id": "deepseek-v4-flash-local",
+          "id": "deepseek-v4-flash-default",
           "displayName": "DeepSeek V4 Flash",
+          "targetModel": "deepseek-v4-flash",
+          "contextWindow": 1000000,
+          "maxOutputTokens": 384000,
+          "supports": {
+            "tools": true,
+            "vision": false
+          },
+          "parameters": {
+            "thinking": {
+              "type": "disabled"
+            }
+          },
+          "payloadOverrides": {},
+          "payloadOverridesByThinking": {},
+          "reasoningHistory": {
+            "mode": "none"
+          }
+        },
+        {
+          "id": "deepseek-v4-flash-thinking-high",
+          "displayName": "DeepSeek V4 Flash thinking:high",
+          "targetModel": "deepseek-v4-flash",
+          "contextWindow": 1000000,
+          "maxOutputTokens": 384000,
+          "supports": {
+            "tools": true,
+            "vision": false
+          },
+          "parameters": {
+            "thinking": {
+              "type": "enabled"
+            },
+            "reasoning_effort": "high"
+          },
+          "reasoningHistory": {
+            "mode": "inject-empty"
+          },
+          "payloadOverrides": {},
+          "payloadOverridesByThinking": {}
+        },
+        {
+          "id": "deepseek-v4-flash-thinking-max",
+          "displayName": "DeepSeek V4 Flash thinking:max",
           "targetModel": "deepseek-v4-flash",
           "contextWindow": 1000000,
           "maxOutputTokens": 384000,
@@ -42,8 +85,51 @@
           "payloadOverridesByThinking": {}
         },
         {
-          "id": "deepseek-v4-pro-local",
+          "id": "deepseek-v4-pro-default",
           "displayName": "DeepSeek V4 Pro",
+          "targetModel": "deepseek-v4-pro",
+          "contextWindow": 1000000,
+          "maxOutputTokens": 384000,
+          "supports": {
+            "tools": true,
+            "vision": false
+          },
+          "parameters": {
+            "thinking": {
+              "type": "disabled"
+            }
+          },
+          "payloadOverrides": {},
+          "payloadOverridesByThinking": {},
+          "reasoningHistory": {
+            "mode": "none"
+          }
+        },
+        {
+          "id": "deepseek-v4-pro-thinking-high",
+          "displayName": "DeepSeek V4 Pro thinking:high",
+          "targetModel": "deepseek-v4-pro",
+          "contextWindow": 1000000,
+          "maxOutputTokens": 384000,
+          "supports": {
+            "tools": true,
+            "vision": false
+          },
+          "parameters": {
+            "thinking": {
+              "type": "enabled"
+            },
+            "reasoning_effort": "high"
+          },
+          "reasoningHistory": {
+            "mode": "inject-empty"
+          },
+          "payloadOverrides": {},
+          "payloadOverridesByThinking": {}
+        },
+        {
+          "id": "deepseek-v4-pro-thinking-max",
+          "displayName": "DeepSeek V4 Pro thinking:max",
           "targetModel": "deepseek-v4-pro",
           "contextWindow": 1000000,
           "maxOutputTokens": 384000,
