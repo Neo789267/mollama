@@ -100,7 +100,7 @@ export interface ThinkingStatePayloadOverrides {
   disabled?: ModelRequestDefaults;
 }
 
-export type ReasoningHistoryMode = 'none' | 'inject-empty' | 'require-present';
+export type ReasoningHistoryMode = 'none' | 'inject-empty' | 'always' | 'require-present';
 
 export interface ReasoningHistoryConfig {
   mode: ReasoningHistoryMode;

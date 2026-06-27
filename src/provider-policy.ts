@@ -73,7 +73,7 @@ function modelSupportsThinkingControls(model: ModelDefinition, payload: JsonObje
     || model.parameters.reasoning_effort !== undefined
     || model.payloadOverridesByThinking.enabled !== undefined
     || model.payloadOverridesByThinking.disabled !== undefined
-    || model.reasoningHistory.mode !== 'none';
+    || (model.reasoningHistory.mode !== 'none' && model.reasoningHistory.mode !== 'always');
 }
 
 function applyThinkParameterAlias(model: ModelDefinition, payload: JsonObject): void {
@@ -96,16 +96,12 @@ function applyReasoningHistoryMode(model: ModelDefinition, payload: JsonObject):
     return;
   }
 
-  const thinking = payload.thinking;
-  if (!isRecord(thinking) || thinking.type !== 'enabled') {
-    return;
-  }
-
   const messages = payload.messages;
   if (!Array.isArray(messages)) {
     return;
   }
 
+  // Collect all assistant messages that lack reasoning_content
   const assistantMessagesMissingReasoning: Array<Record<string, unknown>> = [];
   for (const message of messages) {
     if (!isAssistantMessage(message)) {
@@ -125,6 +121,23 @@ function applyReasoningHistoryMode(model: ModelDefinition, payload: JsonObject):
     return;
   }
 
+  // 'always' mode: unconditionally inject empty reasoning_content
+  // regardless of thinking parameter state.
+  // For models like kimi-k2.7-code where Preserved Thinking is always on
+  // and the thinking parameter must NOT be sent.
+  if (model.reasoningHistory.mode === 'always') {
+    for (const message of assistantMessagesMissingReasoning) {
+      message.reasoning_content = '';
+    }
+    return;
+  }
+
+  // 'inject-empty' and 'require-present' need thinking enabled guard
+  const thinking = payload.thinking;
+  if (!isRecord(thinking) || thinking.type !== 'enabled') {
+    return;
+  }
+
   if (model.reasoningHistory.mode === 'inject-empty') {
     for (const message of assistantMessagesMissingReasoning) {
       message.reasoning_content = '';
@@ -139,14 +152,19 @@ function applyReasoningHistoryMode(model: ModelDefinition, payload: JsonObject):
 }
 
 function applyThinkingStatePayloadOverrides(model: ModelDefinition, payload: JsonObject): void {
-  const thinking = payload.thinking;
-  if (!isRecord(thinking)) {
-    return;
-  }
+  // For 'always' mode, treat thinking as permanently enabled without needing
+  // the thinking parameter in the payload. This lets always-thinking models
+  // (e.g. kimi-k2.7-code) use payloadOverridesByThinking.enabled to set
+  // fixed parameters (like temperature) without sending thinking to the API.
+  const thinkingType = model.reasoningHistory.mode === 'always'
+    ? 'enabled'
+    : isRecord(payload.thinking)
+      ? payload.thinking.type
+      : undefined;
 
-  const overrides = thinking.type === 'enabled'
+  const overrides = thinkingType === 'enabled'
     ? model.payloadOverridesByThinking.enabled
-    : thinking.type === 'disabled'
+    : thinkingType === 'disabled'
       ? model.payloadOverridesByThinking.disabled
       : undefined;
 

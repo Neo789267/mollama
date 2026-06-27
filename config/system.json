@@ -12,24 +12,18 @@
       "userAgentPattern": "GitHubCopilotChat",
       "reasoningCompat": "thinking",
       "payloadOverrides": {
-        "max_tokens": 16384
+        "max_tokens": 32768
       },
       "messages": [
         {
           "role": "system",
-          "content": "This frontend is sensitive to large file-edit tool calls. Prefer one file per tool call, emit a short progress update before writing, and split large changes into follow-up calls."
-        }
-      ],
-      "toolGuidance": [
-        {
-          "target": "file-tools",
-          "descriptionSuffix": "This frontend accepts file updates most reliably when each tool call changes a single file. If multiple files are needed, create them through separate follow-up calls."
+          "content": "Frontend supports sub-agent - It is required to use sub-agents as much as possible (no more than 3 in parallel), and for long outputs, split into multiple concise responses to avoid length limits."
         }
       ]
     },
     "opencode": {
       "requestDefaults": {
-        "max_tokens": 16384
+        "max_tokens": 32768
       },
       "messages": [
         {
