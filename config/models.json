@@ -14,7 +14,13 @@
         "retry": {
           "attempts": 1,
           "backoffMs": 150,
-          "retryOnStatusCodes": [429, 500, 502, 503, 504]
+          "retryOnStatusCodes": [
+            429,
+            500,
+            502,
+            503,
+            504
+          ]
         },
         "headers": {}
       },
@@ -151,6 +157,55 @@
         }
       ]
     },
+    "kimi-for-coding": {
+      "thinkingField": "reasoning_content",
+      "upstream": {
+        "baseUrl": "https://api.kimi.com/coding/v1",
+        "apiKey": "env:KIMI_FOR_CODING_API_KEY",
+        "timeoutMs": 60000,
+        "streamIdleTimeoutMs": 300000,
+        "retry": {
+          "attempts": 1,
+          "backoffMs": 150,
+          "retryOnStatusCodes": [
+            429,
+            500,
+            502,
+            503,
+            504
+          ]
+        },
+        "headers": {}
+      },
+      "models": [
+        {
+          "id": "kimi-for-coding",
+          "displayName": "Kimi For Coding",
+          "targetModel": "kimi-for-coding",
+          "contextWindow": 262144,
+          "maxOutputTokens": 32768,
+          "supports": {
+            "tools": true,
+            "vision": true
+          },
+          "parameters": {},
+          "payloadOverrides": {
+            "top_p": 0.95,
+            "n": 1,
+            "presence_penalty": 0,
+            "frequency_penalty": 0
+          },
+          "payloadOverridesByThinking": {
+            "enabled": {
+              "temperature": 1
+            }
+          },
+          "reasoningHistory": {
+            "mode": "always"
+          }
+        }
+      ]
+    },
     "kimi": {
       "thinkingField": "reasoning_content",
       "upstream": {
@@ -161,11 +216,43 @@
         "retry": {
           "attempts": 1,
           "backoffMs": 150,
-          "retryOnStatusCodes": [429, 500, 502, 503, 504]
+          "retryOnStatusCodes": [
+            429,
+            500,
+            502,
+            503,
+            504
+          ]
         },
         "headers": {}
       },
       "models": [
+        {
+          "id": "kimi-k2-7-code-local",
+          "displayName": "Kimi K2.7 Code",
+          "targetModel": "kimi-k2.7-code",
+          "contextWindow": 262144,
+          "maxOutputTokens": 16384,
+          "supports": {
+            "tools": true,
+            "vision": true
+          },
+          "parameters": {},
+          "payloadOverrides": {
+            "top_p": 0.95,
+            "n": 1,
+            "presence_penalty": 0,
+            "frequency_penalty": 0
+          },
+          "payloadOverridesByThinking": {
+            "enabled": {
+              "temperature": 1
+            }
+          },
+          "reasoningHistory": {
+            "mode": "always"
+          }
+        },
         {
           "id": "kimi-k2-6-local",
           "displayName": "Kimi K2.6",
@@ -196,7 +283,7 @@
             }
           },
           "reasoningHistory": {
-            "mode": "none"
+            "mode": "inject-empty"
           }
         },
         {
@@ -229,7 +316,7 @@
             }
           },
           "reasoningHistory": {
-            "mode": "none"
+            "mode": "inject-empty"
           }
         }
       ]
@@ -244,7 +331,13 @@
         "retry": {
           "attempts": 1,
           "backoffMs": 150,
-          "retryOnStatusCodes": [429, 500, 502, 503, 504]
+          "retryOnStatusCodes": [
+            429,
+            500,
+            502,
+            503,
+            504
+          ]
         },
         "headers": {
           "api-key": ""
@@ -269,7 +362,7 @@
           "payloadOverrides": {},
           "payloadOverridesByThinking": {},
           "reasoningHistory": {
-            "mode": "none"
+            "mode": "inject-empty"
           }
         },
         {
@@ -290,28 +383,7 @@
           "payloadOverrides": {},
           "payloadOverridesByThinking": {},
           "reasoningHistory": {
-            "mode": "none"
-          }
-        },
-        {
-          "id": "mimo-v2-flash-local",
-          "displayName": "MiMo V2 Flash",
-          "targetModel": "mimo-v2-flash",
-          "contextWindow": 262144,
-          "maxOutputTokens": 65536,
-          "supports": {
-            "tools": true,
-            "vision": true
-          },
-          "parameters": {
-            "thinking": {
-              "type": "disabled"
-            }
-          },
-          "payloadOverrides": {},
-          "payloadOverridesByThinking": {},
-          "reasoningHistory": {
-            "mode": "none"
+            "mode": "inject-empty"
           }
         }
       ]

@@ -471,8 +471,8 @@ After merging, if `max_tokens` is not set, it defaults to `model.maxOutputTokens
 After the merge order above, `mollama` applies the remaining thinking-specific compatibility logic in this order:
 
 1. Normalize top-level `think: true | false` to `thinking.type: "enabled" | "disabled"` for models that support thinking controls.
-2. Apply `reasoningHistory` handling to historical assistant messages.
-3. Apply `payloadOverridesByThinking` based on the resolved `thinking.type` value.
+2. Apply `reasoningHistory` handling to historical assistant messages. For `always` mode, this runs regardless of the `thinking` parameter.
+3. Apply `payloadOverridesByThinking` based on the resolved `thinking.type` value. For `always` mode, the thinking type is treated as `"enabled"` — the `enabled` overrides apply even without the `thinking` parameter in the payload.
 4. Clamp `max_tokens` to `model.maxOutputTokens`.
 
 ---
@@ -640,7 +640,8 @@ Some models (e.g., DeepSeek, Kimi, MiMo) support a `thinking` parameter that ena
 When `reasoningHistory` is configured on a model, `mollama` keeps the configured `thinking` mode and applies one of these explicit behaviors if historical assistant messages are missing `reasoning_content`:
 
 - `none` (default): forward the request unchanged.
-- `inject-empty`: add `reasoning_content: ""` to historical assistant messages that are missing the field.
+- `inject-empty`: add `reasoning_content: ""` to historical assistant messages that are missing the field. Only activates when `thinking.type` is `"enabled"`.
+- `always`: unconditionally add `reasoning_content: ""` to historical assistant messages that are missing the field, regardless of the `thinking` parameter. Intended for models like `kimi-k2.7-code` where Preserved Thinking is always on and the `thinking` parameter must not be sent to the upstream API.
 - `require-present`: reject the request with a 400 `missing_reasoning_content` error.
 
 This makes provider-specific compatibility handling explicit and avoids silent thinking downgrades.
@@ -648,6 +649,8 @@ This makes provider-specific compatibility handling explicit and avoids silent t
 ### payloadOverridesByThinking
 
 Allows different parameter values depending on whether thinking is enabled or disabled in the current request. See [payloadOverridesByThinking](#payloadoverridesbythinking) above.
+
+For models with `reasoningHistory.mode: "always"` (e.g. `kimi-k2.7-code`), `mollama` treats thinking as permanently `"enabled"` — the `enabled` overrides are applied without sending the `thinking` parameter to the upstream API. This lets always-thinking models use `payloadOverridesByThinking` to set fixed parameters (like `temperature`) while remaining compliant with provider requirements.
 
 ---
 
@@ -774,6 +777,32 @@ Allows different parameter values depending on whether thinking is enabled or di
         "headers": {}
       },
       "models": [
+        {
+          "id": "kimi-k2-7-code-local",
+          "displayName": "Kimi K2.7 Code",
+          "targetModel": "kimi-k2.7-code",
+          "contextWindow": 262144,
+          "maxOutputTokens": 16384,
+          "supports": {
+            "tools": true,
+            "vision": true
+          },
+          "parameters": {},
+          "payloadOverrides": {
+            "top_p": 0.95,
+            "n": 1,
+            "presence_penalty": 0,
+            "frequency_penalty": 0
+          },
+          "payloadOverridesByThinking": {
+            "enabled": {
+              "temperature": 1
+            }
+          },
+          "reasoningHistory": {
+            "mode": "always"
+          }
+        },
         {
           "id": "kimi-k2-6-local",
           "displayName": "Kimi K2.6",

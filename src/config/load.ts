@@ -300,8 +300,8 @@ function loadReasoningHistory(value: unknown, fieldName: string): ReasoningHisto
   assert(isRecord(value), `${fieldName} must be an object`);
   const rawMode = value.mode === undefined ? 'none' : asString(value.mode, `${fieldName}.mode`);
   assert(
-    rawMode === 'none' || rawMode === 'inject-empty' || rawMode === 'require-present',
-    `${fieldName}.mode must be one of: none, inject-empty, require-present`,
+    rawMode === 'none' || rawMode === 'inject-empty' || rawMode === 'always' || rawMode === 'require-present',
+    `${fieldName}.mode must be one of: none, inject-empty, always, require-present`,
   );
   return { mode: rawMode };
 }
