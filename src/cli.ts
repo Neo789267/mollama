@@ -1,20 +1,21 @@
 #!/usr/bin/env node
 
-import type { Server } from 'node:http';
-import { basename } from 'node:path';
-import { loadAppConfig, initConfig } from './config/load';
-import { createAppServer } from './server';
+import "dotenv/config";
+import type { Server } from "node:http";
+import { basename } from "node:path";
+import { loadAppConfig, initConfig } from "./config/load";
+import { createAppServer } from "./server";
 
 interface ParsedArgs {
-  command: 'start' | 'validate-config' | 'init' | 'help';
+  command: "start" | "validate-config" | "init" | "help";
   configPath: string;
   targetDirectory: string;
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
-  let command: ParsedArgs['command'] = 'start';
-  let configPath = 'config/system.json';
-  let targetDirectory = '.';
+  let command: ParsedArgs["command"] = "start";
+  let configPath = "config/system.json";
+  let targetDirectory = ".";
 
   const positional: string[] = [];
   for (let index = 0; index < argv.length; index += 1) {
@@ -23,10 +24,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
       continue;
     }
 
-    if (current === '--config') {
+    if (current === "--config") {
       const next = argv[index + 1];
       if (!next) {
-        throw new Error('--config requires a file path');
+        throw new Error("--config requires a file path");
       }
       configPath = next;
       index += 1;
@@ -36,15 +37,19 @@ export function parseArgs(argv: string[]): ParsedArgs {
     positional.push(current);
   }
 
-  if (positional[0] === 'validate-config') {
-    command = 'validate-config';
-  } else if (positional[0] === 'init') {
-    command = 'init';
+  if (positional[0] === "validate-config") {
+    command = "validate-config";
+  } else if (positional[0] === "init") {
+    command = "init";
     if (positional[1]) {
       targetDirectory = positional[1];
     }
-  } else if (positional[0] === 'help' || positional[0] === '--help' || positional[0] === '-h') {
-    command = 'help';
+  } else if (
+    positional[0] === "help" ||
+    positional[0] === "--help" ||
+    positional[0] === "-h"
+  ) {
+    command = "help";
   }
 
   return {
@@ -55,31 +60,39 @@ export function parseArgs(argv: string[]): ParsedArgs {
 }
 
 function printHelp(): void {
-  const scriptName = basename(process.argv[1] ?? 'mollama');
+  const scriptName = basename(process.argv[1] ?? "mollama");
   console.log(`Usage: ${scriptName} [start|validate-config|init] [options]\n`);
-  console.log('Commands:');
-  console.log('  start                Start the proxy server (default)');
-  console.log('  validate-config      Load and validate config files');
-  console.log('  init [directory]     Create minimal system.json and models.json');
-  console.log('');
-  console.log('Options:');
-  console.log('  --config <path>      Path to system config (default: config/system.json)');
+  console.log("Commands:");
+  console.log("  start                Start the proxy server (default)");
+  console.log("  validate-config      Load and validate config files");
+  console.log(
+    "  init [directory]     Create minimal system.json and models.json",
+  );
+  console.log("");
+  console.log("Options:");
+  console.log(
+    "  --config <path>      Path to system config (default: config/system.json)",
+  );
 }
 
-function listenServer(server: Server, host: string, port: number): Promise<void> {
+function listenServer(
+  server: Server,
+  host: string,
+  port: number,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const onError = (error: Error) => {
-      server.off('listening', onListening);
+      server.off("listening", onListening);
       reject(error);
     };
 
     const onListening = () => {
-      server.off('error', onError);
+      server.off("error", onError);
       resolve();
     };
 
-    server.once('error', onError);
-    server.once('listening', onListening);
+    server.once("error", onError);
+    server.once("listening", onListening);
     server.listen(port, host);
   });
 }
@@ -99,7 +112,7 @@ function closeServer(server: Server): Promise<void> {
 const SHUTDOWN_TIMEOUT_MS = 30_000;
 
 function registerShutdownHandlers(server: Server): void {
-  const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
+  const signals: NodeJS.Signals[] = ["SIGINT", "SIGTERM"];
   const handlers = new Map<NodeJS.Signals, () => void>();
 
   const cleanupHandlers = () => {
@@ -115,7 +128,9 @@ function registerShutdownHandlers(server: Server): void {
     }
 
     const forceExitTimer = setTimeout(() => {
-      console.error(`Server did not shut down within ${SHUTDOWN_TIMEOUT_MS}ms, forcing exit`);
+      console.error(
+        `Server did not shut down within ${SHUTDOWN_TIMEOUT_MS}ms, forcing exit`,
+      );
       process.exit(1);
     }, SHUTDOWN_TIMEOUT_MS);
     forceExitTimer.unref();
@@ -135,18 +150,18 @@ function registerShutdownHandlers(server: Server): void {
     process.once(signal, handler);
   }
 
-  server.once('close', cleanupHandlers);
+  server.once("close", cleanupHandlers);
 }
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
-  if (args.command === 'help') {
+  if (args.command === "help") {
     printHelp();
     return;
   }
 
-  if (args.command === 'init') {
+  if (args.command === "init") {
     const result = initConfig(args.targetDirectory);
     console.log(`Created ${result.systemConfigPath}`);
     console.log(`Created ${result.modelsConfigPath}`);
@@ -155,33 +170,43 @@ async function main(): Promise<void> {
 
   const config = loadAppConfig(args.configPath);
 
-  if (args.command === 'validate-config') {
+  if (args.command === "validate-config") {
     console.log(`Validated ${config.systemConfigPath}`);
     console.log(`Validated ${config.modelsConfigPath}`);
     console.log(`Loaded ${config.models.models.length} model definition(s)`);
-    console.log(`Configured frontend profile(s): ${Object.keys(config.system.frontends).length}`);
+    console.log(
+      `Configured frontend profile(s): ${Object.keys(config.system.frontends).length}`,
+    );
     for (const model of config.models.models) {
       const flags: string[] = [];
-      if (model.reasoningHistory.mode !== 'none') {
+      if (model.reasoningHistory.mode !== "none") {
         flags.push(`reasoning-history:${model.reasoningHistory.mode}`);
       }
       if (model.supports.tools) {
-        flags.push('tools');
+        flags.push("tools");
       }
       if (model.supports.vision) {
-        flags.push('vision');
+        flags.push("vision");
       }
-      const flagSummary = flags.length > 0 ? ` [${flags.join(', ')}]` : '';
-      console.log(`  ${model.displayName} -> ${model.targetModel} (provider: ${model.provider})${flagSummary}`);
+      const flagSummary = flags.length > 0 ? ` [${flags.join(", ")}]` : "";
+      console.log(
+        `  ${model.displayName} -> ${model.targetModel} (provider: ${model.provider})${flagSummary}`,
+      );
     }
     return;
   }
 
   const server = createAppServer(config);
   registerShutdownHandlers(server);
-  await listenServer(server, config.system.server.host, config.system.server.port);
+  await listenServer(
+    server,
+    config.system.server.host,
+    config.system.server.port,
+  );
 
-  console.log(`mollama listening on http://${config.system.server.host}:${config.system.server.port}`);
+  console.log(
+    `mollama listening on http://${config.system.server.host}:${config.system.server.port}`,
+  );
 }
 
 if (require.main === module) {
