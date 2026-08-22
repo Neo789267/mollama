@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AppConfig, FrontendProfile } from './types';
 import { AppError, badGateway, badRequest, isAppError, notImplemented } from './errors';
+import { isRecord } from './guards';
 import { Logger, redactHeaders } from './logging';
 import { createModelRegistry, type ModelRegistry } from './model-registry';
 import {
@@ -40,6 +41,33 @@ function sendError(response: ServerResponse, error: AppError): void {
 function sendNotImplemented(response: ServerResponse, message: string): void {
   const error = notImplemented(message, 'endpoint_not_supported');
   sendJson(response, error.statusCode, { error: error.message, code: error.code });
+}
+
+function extractUpstreamErrorMessage(body: string): string {
+  try {
+    const parsed = JSON.parse(body) as unknown;
+    if (isRecord(parsed)) {
+      const error = parsed.error;
+      if (typeof error === 'string') {
+        return error;
+      }
+      if (isRecord(error) && typeof error.message === 'string') {
+        return error.message;
+      }
+      if (typeof parsed.message === 'string') {
+        return parsed.message;
+      }
+    }
+  } catch {
+    // fall through to raw body
+  }
+  return body.slice(0, 500) || 'Upstream request failed';
+}
+
+// Upstream error responses must surface as Ollama-style {"error": "..."} so
+// clients see the real cause instead of a mapped (fake) success payload.
+function sendUpstreamError(response: ServerResponse, statusCode: number, body: string): void {
+  sendJson(response, statusCode, { error: extractUpstreamErrorMessage(body) });
 }
 
 async function readBody(request: IncomingMessage): Promise<string> {
@@ -124,6 +152,11 @@ async function handlePsRoute(context: RequestContext): Promise<number> {
   return 200;
 }
 
+async function handleModelRecommendationsRoute(context: RequestContext): Promise<number> {
+  sendJson(context.response, 200, { recommendations: [] });
+  return 200;
+}
+
 async function handleShowRoute(context: RequestContext): Promise<number> {
   const rawBody = await readBody(context.request);
   const parsedBody = parseJsonBody(rawBody) as { model?: string };
@@ -153,12 +186,31 @@ async function pipeOpenAIStreamAsOllama(
     context.logger.error('request.stream_error', { requestId: context.requestId, message });
     if (!context.response.headersSent) {
       sendError(context.response, badGateway(message, 'stream_write_failed'));
-    } else {
+      return;
+    }
+
+    // Mid-stream failure: ollama-js only reports "Did not receive done or
+    // success response" when the socket is cut. Send an Ollama error chunk
+    // first so the client surfaces the real cause, then close cleanly.
+    try {
+      context.response.write(`${JSON.stringify({ error: message })}\n`);
+      context.response.end();
+    } catch {
       context.response.destroy();
     }
   });
 
   outputBody.pipe(context.response);
+
+  // If the client disconnects mid-stream, cancel the upstream request instead
+  // of hanging until the idle timeout. Transform close destroys the upstream body.
+  context.response.on('close', () => {
+    if (!context.response.writableEnded && !outputBody.destroyed) {
+      context.logger.info('request.client_disconnected', { requestId: context.requestId });
+      outputBody.destroy();
+    }
+  });
+
   return 200;
 }
 
@@ -173,6 +225,11 @@ async function handleOllamaChatRoute(context: RequestContext): Promise<number> {
 
   if (forwarded.result.kind === 'stream') {
     return pipeOpenAIStreamAsOllama(context, forwarded.result.body, visibleModel, 'chat');
+  }
+
+  if (forwarded.result.statusCode >= 400) {
+    sendUpstreamError(context.response, forwarded.result.statusCode, forwarded.result.body);
+    return forwarded.result.statusCode;
   }
 
   context.response.writeHead(forwarded.result.statusCode, {
@@ -195,6 +252,11 @@ async function handleOllamaGenerateRoute(context: RequestContext): Promise<numbe
     return pipeOpenAIStreamAsOllama(context, forwarded.result.body, visibleModel, 'generate');
   }
 
+  if (forwarded.result.statusCode >= 400) {
+    sendUpstreamError(context.response, forwarded.result.statusCode, forwarded.result.body);
+    return forwarded.result.statusCode;
+  }
+
   context.response.writeHead(forwarded.result.statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
   });
@@ -212,6 +274,11 @@ async function handleOllamaEmbedRoute(context: RequestContext): Promise<number> 
     throw badGateway('Embedding endpoint must not return stream', 'invalid_upstream_embed_stream');
   }
 
+  if (forwarded.result.statusCode >= 400) {
+    sendUpstreamError(context.response, forwarded.result.statusCode, forwarded.result.body);
+    return forwarded.result.statusCode;
+  }
+
   context.response.writeHead(forwarded.result.statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
   });
@@ -227,6 +294,11 @@ async function handleOllamaEmbeddingsRoute(context: RequestContext): Promise<num
   const forwarded = await forwardOpenAIEmbeddings(context.config, context.modelRegistry, normalized.payload);
   if (forwarded.result.kind === 'stream') {
     throw badGateway('Embeddings endpoint must not return stream', 'invalid_upstream_embed_stream');
+  }
+
+  if (forwarded.result.statusCode >= 400) {
+    sendUpstreamError(context.response, forwarded.result.statusCode, forwarded.result.body);
+    return forwarded.result.statusCode;
   }
 
   context.response.writeHead(forwarded.result.statusCode, {
@@ -261,6 +333,16 @@ async function handleOpenAIChatCompletionsRoute(context: RequestContext): Promis
       }
     });
     outputBody.pipe(context.response);
+
+    // If the client disconnects mid-stream, cancel the upstream request instead
+    // of hanging until the idle timeout. Transform close destroys the upstream body.
+    context.response.on('close', () => {
+      if (!context.response.writableEnded && !outputBody.destroyed) {
+        context.logger.info('request.client_disconnected', { requestId: context.requestId });
+        outputBody.destroy();
+      }
+    });
+
     return forwarded.result.statusCode;
   }
 
@@ -282,6 +364,7 @@ const routeMap = new Map<RouteKey, RouteHandler>([
   [routeKey('GET', '/api/version'), handleVersionRoute],
   [routeKey('GET', '/api/tags'), handleTagsRoute],
   [routeKey('GET', '/api/ps'), handlePsRoute],
+  [routeKey('GET', '/api/experimental/model-recommendations'), handleModelRecommendationsRoute],
   [routeKey('POST', '/api/show'), handleShowRoute],
   [routeKey('POST', '/api/chat'), handleOllamaChatRoute],
   [routeKey('POST', '/api/generate'), handleOllamaGenerateRoute],

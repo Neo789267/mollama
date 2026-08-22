@@ -41,6 +41,7 @@ mollama 适用于**所有**提供 OpenAI 兼容接口的提供商。热门模型
 | 场景 | 说明 |
 |------|------|
 | **Copilot + DeepSeek/Kimi** | 让 GitHub Copilot Chat 使用 DeepSeek、Kimi、通义千问等国产模型 |
+| **ollama-vscode 插件** | 通过原生 `/api/chat` 协议让 Ollama 官方 VS Code 插件使用远程模型 |
 | **模型聚合网关** | 统一管理多个提供商，一个本地端口访问所有模型 |
 | **网络绕路代理** | 部署到云端服务器，前端仅与云端通信，摆脱网络限制 |
 | **多前端统一接入** | 为 GitHub Copilot、OpenCode、Continue、Cline、Aider 等提供统一服务 |
@@ -76,6 +77,7 @@ mollama 使用两个 JSON 配置文件：
 | 📖 [配置参考](docs/configuration-reference.md) | `system.json` 和 `models.json` 的完整 Schema |
 | 🔬 [Ollama vs OpenAI API 差异](docs/api-difference.md) | 完整的 API 端点覆盖与协议差异 |
 | 🤖 [GitHub Copilot Chat 集成](docs/copilot-chat-integration.md) | Copilot Chat 如何发现和使用 Ollama 模型 |
+| 🧩 [ollama-vscode 插件集成](docs/ollama-vscode-integration.md) | Ollama 官方 VS Code 插件的 API 调用方式与适配方案 |
 
 ## 项目结构
 
@@ -99,7 +101,8 @@ mollama/
 └── docs/
     ├── configuration-reference.md
     ├── api-difference.md
-    └── copilot-chat-integration.md
+    ├── copilot-chat-integration.md
+    └── ollama-vscode-integration.md
 ```
 
 ## 开发
@@ -107,8 +110,11 @@ mollama/
 ```bash
 npm run build          # 编译 TypeScript
 npm test               # 运行集成测试
-npm run sync:test-env  # 部署到测试环境
+npm run sync:test-env  # 构建并部署到测试环境（默认 C:\tmp\mollama，可用 MOLLAMA_TEST_ROOT 覆盖）
+npm run start:test-env # 启动部署好的测试环境
 ```
+
+测试环境让真实 API key 不进入仓库：开发目录的配置只保留 `env:` 占位符，key 存放在 `<测试根目录>/api-key/keys.txt`（首次同步会自动生成模板，该文件在重复同步时保留）。key 条目既支持 `models.json` 里 `env:` 引用的变量名（如 `DEEPSEEK_API_KEY=sk-...`），也支持 provider 别名。
 
 ## 许可证
 

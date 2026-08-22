@@ -237,6 +237,8 @@ class OpenAIStreamToOllamaNdjson extends Transform {
 
   private readonly toolCalls = new Map<number, ToolCallAccumulator>();
 
+  private doneEmitted = false;
+
   constructor(private readonly visibleModel: string, private readonly mode: StreamMode) {
     super();
   }
@@ -264,6 +266,15 @@ class OpenAIStreamToOllamaNdjson extends Transform {
 
     if (this.sseBuffer.trim().length > 0) {
       this.processSseEvent(this.sseBuffer);
+    }
+
+    // Ollama clients (e.g. ollama-js) require a terminal chunk with done:true;
+    // emit one if the upstream stream ended without a finish_reason.
+    if (!this.doneEmitted) {
+      const donePayload = this.mode === 'chat'
+        ? chatDonePayload(this.visibleModel, this.createdAt, 'stop', { prompt_eval_count: 0, eval_count: 0 }, this.getFinalToolCalls())
+        : generateDonePayload(this.visibleModel, this.createdAt, 'stop', { prompt_eval_count: 0, eval_count: 0 });
+      this.push(`${JSON.stringify(donePayload)}\n`);
     }
 
     callback();
@@ -330,6 +341,7 @@ class OpenAIStreamToOllamaNdjson extends Transform {
       const donePayload = this.mode === 'chat'
         ? chatDonePayload(this.visibleModel, this.createdAt, finishReason, usage, toolCalls)
         : generateDonePayload(this.visibleModel, this.createdAt, finishReason, usage);
+      this.doneEmitted = true;
       this.push(`${JSON.stringify(donePayload)}\n`);
       return;
     }

@@ -28,6 +28,14 @@ function buildModelDigest(modelId: string): string {
   return `sha256:${createHash('sha256').update(modelId).digest('hex')}`;
 }
 
+// Matches what real Ollama reports for its cloud models; only used when a
+// provider's upstream baseUrl cannot be parsed into an origin.
+const FALLBACK_REMOTE_HOST = 'https://ollama.com:443';
+
+function remoteHostOf(model: ModelDefinition): string {
+  return model.remoteHost ?? FALLBACK_REMOTE_HOST;
+}
+
 function buildModelCapabilities(model: ModelDefinition): string[] {
   const capabilities = ['completion'];
   if (model.supports.tools) {
@@ -36,7 +44,22 @@ function buildModelCapabilities(model: ModelDefinition): string[] {
   if (model.supports.vision) {
     capabilities.push('vision');
   }
+  if (model.supports.thinking) {
+    capabilities.push('thinking');
+  }
   return capabilities;
+}
+
+function buildModelDetails(model: ModelDefinition): unknown {
+  const family = model.family ?? 'proxy';
+  return {
+    parent_model: '',
+    format: 'proxy',
+    family,
+    families: [family],
+    parameter_size: 'unknown',
+    quantization_level: 'unknown',
+  };
 }
 
 export interface ModelRegistry {
@@ -70,17 +93,20 @@ export function createModelRegistry(models: ModelDefinition[]): ModelRegistry {
       models: modelList.map((model) => ({
         name: model.displayName,
         model: model.displayName,
+        // Mark every model as remote-served, mirroring real Ollama cloud
+        // entries. ollama-vscode treats such models as non-local and skips
+        // its machine-context check, which would otherwise delay consumption
+        // of the chat response stream — an unread fetch body can be torn down
+        // by Node's GC, surfacing as "Did not receive done or success
+        // response in stream.".
+        remote_host: remoteHostOf(model),
+        remote_model: model.targetModel,
         modified_at: new Date(0).toISOString(),
         size: 0,
         digest: buildModelDigest(model.id),
-        details: {
-          parent_model: '',
-          format: 'proxy',
-          family: 'proxy',
-          families: ['proxy'],
-          parameter_size: 'unknown',
-          quantization_level: 'unknown',
-        },
+        capabilities: buildModelCapabilities(model),
+        context_length: model.contextWindow,
+        details: buildModelDetails(model),
       })),
     }),
     buildShowResponse: (model) => ({
@@ -88,24 +114,33 @@ export function createModelRegistry(models: ModelDefinition[]): ModelRegistry {
       modelfile: `FROM ${model.targetModel}`,
       parameters: '',
       template: '',
-      details: {
-        parent_model: '',
-        format: 'proxy',
-        family: 'proxy',
-        families: ['proxy'],
-        parameter_size: 'unknown',
-        quantization_level: 'unknown',
-      },
+      details: buildModelDetails(model),
       model_info: {
         'general.basename': model.displayName,
         'general.architecture': 'proxy',
         'proxy.context_length': model.contextWindow,
       },
       capabilities: buildModelCapabilities(model),
+      remote_host: remoteHostOf(model),
       remote_model: model.targetModel,
     }),
+    // Report every configured model as loaded, mirroring tags. context_length
+    // feeds the client's context-window heuristics (the plugin warns below
+    // 64K), not the upstream request; report at least that.
     buildPsResponse: () => ({
-      models: [],
+      models: modelList.map((model) => ({
+        name: model.displayName,
+        model: model.displayName,
+        remote_host: remoteHostOf(model),
+        remote_model: model.targetModel,
+        modified_at: new Date(0).toISOString(),
+        size: 0,
+        digest: buildModelDigest(model.id),
+        details: buildModelDetails(model),
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        size_vram: 0,
+        context_length: Math.max(model.contextWindow, 64 * 1024),
+      })),
     }),
   };
 }

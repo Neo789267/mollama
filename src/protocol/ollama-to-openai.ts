@@ -60,6 +60,31 @@ function toImageUrl(image: string): string {
   return `data:image/png;base64,${image}`;
 }
 
+// Upstream OpenAI-compatible providers strictly validate tool schemas
+// (e.g. DeepSeek requires type: "object"). Real Ollama never validates, and
+// frontends like ollama-vscode may emit parameters with type: null or none.
+function sanitizeToolParameters(parameters: unknown): Record<string, unknown> {
+  const schema = isRecord(parameters) ? { ...parameters } : {};
+  if (schema.type !== 'object') {
+    schema.type = 'object';
+  }
+  return schema;
+}
+
+function sanitizeToolForOpenAI(rawTool: unknown): unknown {
+  if (!isRecord(rawTool) || !isRecord(rawTool.function)) {
+    return rawTool;
+  }
+
+  return {
+    ...rawTool,
+    function: {
+      ...rawTool.function,
+      parameters: sanitizeToolParameters(rawTool.function.parameters),
+    },
+  };
+}
+
 function mapToolCallForOpenAI(rawCall: unknown, index: number): Record<string, unknown> | undefined {
   if (!isRecord(rawCall) || !isRecord(rawCall.function)) {
     return undefined;
@@ -76,7 +101,7 @@ function mapToolCallForOpenAI(rawCall: unknown, index: number): Record<string, u
     : JSON.stringify(rawArgs ?? {});
 
   return {
-    id: `call_${index}_${name}`,
+    id: typeof rawCall.id === 'string' && rawCall.id.length > 0 ? rawCall.id : `call_${index}_${name}`,
     type: 'function',
     function: {
       name,
@@ -181,12 +206,12 @@ export function normalizeOllamaChatToOpenAI(requestBody: unknown): NormalizedOll
   };
 
   if (Array.isArray(payload.tools)) {
-    normalized.tools = payload.tools as JsonValue;
+    normalized.tools = payload.tools.map(sanitizeToolForOpenAI) as JsonValue;
   }
   if (typeof payload.tool_choice === 'string' || isRecord(payload.tool_choice)) {
     normalized.tool_choice = payload.tool_choice as JsonValue;
   }
-  if (typeof payload.think === 'boolean') {
+  if (typeof payload.think === 'boolean' || typeof payload.think === 'string') {
     normalized.think = payload.think;
   }
   if (isRecord(payload.thinking)) {
@@ -231,7 +256,7 @@ export function normalizeOllamaGenerateToOpenAI(requestBody: unknown): Normalize
     normalized.response_format = responseFormat;
   }
 
-  if (typeof payload.think === 'boolean') {
+  if (typeof payload.think === 'boolean' || typeof payload.think === 'string') {
     normalized.think = payload.think;
   }
   if (isRecord(payload.thinking)) {

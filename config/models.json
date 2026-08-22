@@ -29,11 +29,13 @@
           "id": "deepseek-v4-flash-default",
           "displayName": "DeepSeek V4 Flash",
           "targetModel": "deepseek-v4-flash",
+          "family": "deepseek-v4-flash",
           "contextWindow": 1000000,
           "maxOutputTokens": 384000,
           "supports": {
             "tools": true,
-            "vision": false
+            "vision": false,
+            "thinking": true
           },
           "parameters": {
             "thinking": {
@@ -50,11 +52,13 @@
           "id": "deepseek-v4-flash-thinking-high",
           "displayName": "DeepSeek V4 Flash High",
           "targetModel": "deepseek-v4-flash",
+          "family": "deepseek-v4-flash",
           "contextWindow": 1000000,
           "maxOutputTokens": 384000,
           "supports": {
             "tools": true,
-            "vision": false
+            "vision": false,
+            "thinking": true
           },
           "parameters": {
             "thinking": {
@@ -72,11 +76,13 @@
           "id": "deepseek-v4-flash-thinking-max",
           "displayName": "DeepSeek V4 Flash Max",
           "targetModel": "deepseek-v4-flash",
+          "family": "deepseek-v4-flash",
           "contextWindow": 1000000,
           "maxOutputTokens": 384000,
           "supports": {
             "tools": true,
-            "vision": false
+            "vision": false,
+            "thinking": true
           },
           "parameters": {
             "thinking": {
@@ -94,11 +100,13 @@
           "id": "deepseek-v4-pro-default",
           "displayName": "DeepSeek V4 Pro",
           "targetModel": "deepseek-v4-pro",
+          "family": "deepseek-v4-pro",
           "contextWindow": 1000000,
           "maxOutputTokens": 384000,
           "supports": {
             "tools": true,
-            "vision": false
+            "vision": false,
+            "thinking": true
           },
           "parameters": {
             "thinking": {
@@ -115,11 +123,13 @@
           "id": "deepseek-v4-pro-thinking-high",
           "displayName": "DeepSeek V4 Pro High",
           "targetModel": "deepseek-v4-pro",
+          "family": "deepseek-v4-pro",
           "contextWindow": 1000000,
           "maxOutputTokens": 384000,
           "supports": {
             "tools": true,
-            "vision": false
+            "vision": false,
+            "thinking": true
           },
           "parameters": {
             "thinking": {
@@ -137,11 +147,13 @@
           "id": "deepseek-v4-pro-thinking-max",
           "displayName": "DeepSeek V4 Pro Max",
           "targetModel": "deepseek-v4-pro",
+          "family": "deepseek-v4-pro",
           "contextWindow": 1000000,
           "maxOutputTokens": 384000,
           "supports": {
             "tools": true,
-            "vision": false
+            "vision": false,
+            "thinking": true
           },
           "parameters": {
             "thinking": {
@@ -186,7 +198,8 @@
           "maxOutputTokens": 32768,
           "supports": {
             "tools": true,
-            "vision": true
+            "vision": true,
+            "thinking": true
           },
           "parameters": {},
           "payloadOverrides": {
@@ -235,7 +248,8 @@
           "maxOutputTokens": 16384,
           "supports": {
             "tools": true,
-            "vision": true
+            "vision": true,
+            "thinking": true
           },
           "parameters": {},
           "payloadOverrides": {
@@ -261,7 +275,8 @@
           "maxOutputTokens": 16384,
           "supports": {
             "tools": true,
-            "vision": true
+            "vision": true,
+            "thinking": true
           },
           "parameters": {
             "thinking": {
@@ -294,7 +309,8 @@
           "maxOutputTokens": 16384,
           "supports": {
             "tools": true,
-            "vision": true
+            "vision": true,
+            "thinking": true
           },
           "parameters": {
             "thinking": {
@@ -352,7 +368,8 @@
           "maxOutputTokens": 131072,
           "supports": {
             "tools": true,
-            "vision": true
+            "vision": true,
+            "thinking": true
           },
           "parameters": {
             "thinking": {
@@ -373,7 +390,8 @@
           "maxOutputTokens": 131072,
           "supports": {
             "tools": true,
-            "vision": true
+            "vision": true,
+            "thinking": true
           },
           "parameters": {
             "thinking": {

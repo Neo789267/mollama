@@ -373,6 +373,7 @@ An array of model definitions under each provider. At least one model per provid
 | `targetModel` | `string` | ✅ | The actual model ID sent to the upstream provider. |
 | `contextWindow` | `number` | ✅ | Context window size in tokens. |
 | `maxOutputTokens` | `number` | ✅ | Maximum output tokens. Used as default `max_tokens` and as a hard cap. |
+| `family` | `string` | ❌ | Ollama model family reported as `details.family`/`details.families` in `/api/tags` and `/api/show`. Defaults to `"proxy"`. Set it to the canonical Ollama model name (e.g. `"deepseek-v4-pro"`) so frontends that match capabilities by family (such as ollama-vscode's thinking-effort selector) recognize the model. |
 | `supports` | `object` | ❌ | Capability flags (see below). |
 | `parameters` | `object` | ❌ | Per-model parameters merged into every request for this model. |
 | `payloadOverrides` | `object` | ❌ | Parameters force-applied after the client payload. |
@@ -385,8 +386,9 @@ An array of model definitions under each provider. At least one model per provid
 |-------|------|---------|-------------|
 | `tools` | `boolean` | `false` | Whether the model supports tool/function calling. |
 | `vision` | `boolean` | `false` | Whether the model supports image input. |
+| `thinking` | `boolean` | `false` | Whether the model supports reasoning/thinking output. Adds `"thinking"` to the Ollama `capabilities` array and allows the `think` request parameter (boolean or effort-level string such as `"high"`). A string level is forwarded to the upstream as `reasoning_effort` with `thinking.type: "enabled"`; `think: false` sends `thinking.type: "disabled"` and drops any inherited `reasoning_effort`. |
 
-If a client sends a tool-calling request to a model with `tools: false`, or a vision request to a model with `vision: false`, the server returns a 400 error.
+If a client sends a tool-calling request to a model with `tools: false`, or a vision request to a model with `vision: false`, the server returns a 400 error. Likewise, a `think` parameter sent to a model without any thinking support returns a 400 error.
 
 ##### payloadOverridesByThinking
 
