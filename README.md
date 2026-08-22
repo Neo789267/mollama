@@ -41,6 +41,7 @@ mollama works with **any** provider that exposes an OpenAI-compatible API. Popul
 | Scenario | Description |
 |----------|-------------|
 | **Copilot + DeepSeek/Kimi** | Make GitHub Copilot Chat use DeepSeek, Kimi, Qwen, or any Chinese LLM |
+| **ollama-vscode Extension** | Serve the official Ollama VS Code extension with remote models via the native `/api/chat` protocol |
 | **Model Aggregation Gateway** | Unified endpoint for multiple providers — one local port, all models |
 | **Network Bypass Proxy** | Deploy to a cloud server; frontends communicate only with the cloud |
 | **Multi-Frontend Hub** | Serve GitHub Copilot, OpenCode, Continue, Cline, Aider, and more from one instance |
@@ -76,6 +77,7 @@ mollama uses two JSON config files:
 | 📖 [Configuration Reference](docs/configuration-reference.md) | Complete schema for `system.json` and `models.json` |
 | 🔬 [Ollama vs OpenAI API Difference](docs/api-difference.md) | Full API endpoint coverage and protocol differences |
 | 🤖 [GitHub Copilot Chat Integration](docs/copilot-chat-integration.md) | How Copilot Chat discovers and uses Ollama models |
+| 🧩 [ollama-vscode Integration](docs/ollama-vscode-integration.md) | How the official Ollama VS Code extension calls the API and how mollama adapts to it |
 
 ## Project Structure
 
@@ -99,7 +101,8 @@ mollama/
 └── docs/
     ├── configuration-reference.md
     ├── api-difference.md
-    └── copilot-chat-integration.md
+    ├── copilot-chat-integration.md
+    └── ollama-vscode-integration.md
 ```
 
 ## Development
@@ -107,8 +110,11 @@ mollama/
 ```bash
 npm run build          # Compile TypeScript
 npm test               # Run integration tests
-npm run sync:test-env  # Deploy to test environment
+npm run sync:test-env  # Build & deploy to the test environment (default C:\tmp\mollama, override with MOLLAMA_TEST_ROOT)
+npm run start:test-env # Run the deployed test environment
 ```
+
+The test environment keeps real API keys out of the repo: the dev config only holds `env:` placeholders, and keys live in `<test-root>/api-key/keys.txt` (a template is generated on first sync; the file survives re-syncs). Key entries match either the `env:` variable names from `models.json` (e.g. `DEEPSEEK_API_KEY=sk-...`) or provider aliases.
 
 ## License
 

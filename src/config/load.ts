@@ -308,13 +308,14 @@ function loadReasoningHistory(value: unknown, fieldName: string): ReasoningHisto
 
 function loadSupportFlags(value: unknown, fieldName: string): ModelSupportFlags {
   if (value === undefined) {
-    return { tools: false, vision: false };
+    return { tools: false, vision: false, thinking: false };
   }
 
   assert(isRecord(value), `${fieldName} must be an object`);
   return {
     tools: value.tools === undefined ? false : asBoolean(value.tools, `${fieldName}.tools`),
     vision: value.vision === undefined ? false : asBoolean(value.vision, `${fieldName}.vision`),
+    thinking: value.thinking === undefined ? false : asBoolean(value.thinking, `${fieldName}.thinking`),
   };
 }
 
@@ -331,6 +332,7 @@ function loadModelDefinitionConfig(value: unknown, fieldName: string): ModelDefi
     targetModel: asString(value.targetModel, `${fieldName}.targetModel`),
     contextWindow: asNumber(value.contextWindow, `${fieldName}.contextWindow`),
     maxOutputTokens: asNumber(value.maxOutputTokens, `${fieldName}.maxOutputTokens`),
+    family: value.family === undefined ? undefined : asString(value.family, `${fieldName}.family`),
     supports: loadSupportFlags(value.supports, `${fieldName}.supports`),
     parameters: value.parameters === undefined ? {} : asJsonRecord(value.parameters, `${fieldName}.parameters`),
     payloadOverrides: value.payloadOverrides === undefined ? {} : asJsonRecord(value.payloadOverrides, `${fieldName}.payloadOverrides`),
@@ -381,13 +383,23 @@ function loadProviderMap(value: unknown): ModelProviderMap {
   }));
 }
 
+function upstreamOrigin(baseUrl: string): string | undefined {
+  try {
+    return new URL(baseUrl).origin;
+  } catch {
+    return undefined;
+  }
+}
+
 function flattenProviderModels(providers: ModelProviderMap): ModelDefinition[] {
   const flattened: ModelDefinition[] = [];
   for (const [providerName, provider] of Object.entries(providers)) {
+    const remoteHost = upstreamOrigin(provider.upstream.baseUrl);
     for (const model of provider.models) {
       flattened.push({
         ...model,
         provider: providerName,
+        remoteHost,
       });
     }
   }

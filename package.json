@@ -1,6 +1,6 @@
 {
   "name": "mollama",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "description": "Ollama protocol compatibility proxy — wrap DeepSeek, Kimi, Qwen, GPT, Claude and any OpenAI-compatible LLM behind a local Ollama service for GitHub Copilot, OpenCode, Continue and more",
   "main": "dist/cli.js",
   "types": "dist/cli.d.ts",
@@ -13,6 +13,7 @@
     "start": "node dist/cli.js start",
     "validate-config": "node dist/cli.js validate-config",
     "sync:test-env": "npm run build && node scripts/sync-test-env.cjs",
+    "start:test-env": "node scripts/start-test-env.cjs",
     "test": "npm run build && node --test test/**/*.test.js"
   },
   "engines": {

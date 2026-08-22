@@ -68,7 +68,8 @@ function ensureModelSupportsRequest(model: ModelDefinition, payload: JsonObject)
 }
 
 function modelSupportsThinkingControls(model: ModelDefinition, payload: JsonObject): boolean {
-  return isJsonObject(payload.thinking)
+  return model.supports.thinking
+    || isJsonObject(payload.thinking)
     || isJsonObject(model.parameters.thinking)
     || model.parameters.reasoning_effort !== undefined
     || model.payloadOverridesByThinking.enabled !== undefined
@@ -77,7 +78,8 @@ function modelSupportsThinkingControls(model: ModelDefinition, payload: JsonObje
 }
 
 function applyThinkParameterAlias(model: ModelDefinition, payload: JsonObject): void {
-  if (typeof payload.think !== 'boolean') {
+  const thinkValue = payload.think;
+  if (typeof thinkValue !== 'boolean' && typeof thinkValue !== 'string') {
     return;
   }
 
@@ -86,7 +88,18 @@ function applyThinkParameterAlias(model: ModelDefinition, payload: JsonObject): 
   }
 
   const thinking = isJsonObject(payload.thinking) ? { ...payload.thinking } : {};
-  thinking.type = payload.think ? 'enabled' : 'disabled';
+  if (typeof thinkValue === 'boolean') {
+    thinking.type = thinkValue ? 'enabled' : 'disabled';
+    if (!thinkValue) {
+      // Explicitly disabled: drop any effort default inherited from model parameters.
+      delete payload.reasoning_effort;
+    }
+  } else {
+    // Ollama effort levels (e.g. "low"/"medium"/"high"/"max" sent by ollama-vscode):
+    // treat any level as enabled and forward it to the upstream as reasoning_effort.
+    thinking.type = 'enabled';
+    payload.reasoning_effort = thinkValue;
+  }
   payload.thinking = thinking;
   delete payload.think;
 }

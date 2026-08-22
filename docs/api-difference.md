@@ -16,7 +16,7 @@
 | `/api/version` | GET | ✅ | ✅ 已实现 | 本地合成，返回 `system.json` 中的 `ollama.version` |
 | `/api/tags` | GET | ✅ | ✅ 已实现 | 本地合成，从模型注册表生成 |
 | `/api/show` | POST | ✅ | ✅ 已实现 | 本地合成，返回模型元数据与 capabilities |
-| `/api/ps` | GET | ✅ | ✅ 已实现 | 本地合成，返回空列表（代理无模型加载概念） |
+| `/api/ps` | GET | ✅ | ✅ 已实现 | 本地合成，返回全部已配置模型（视为常驻加载，含 `remote_host`/`context_length`） |
 | `/api/chat` | POST | ✅ | ✅ 已实现 | 完整双向协议转换 |
 | `/api/generate` | POST | ✅ | ✅ 已实现 | 转换为 chat/completions 调用 |
 | `/api/embed` | POST | ✅ | ✅ 已实现 | 转换为 OpenAI embeddings 调用 |
@@ -33,7 +33,7 @@
 | `GET /api/status` | GET | ✅ | ❌ 未实现 | 服务状态（含 cloud 状态） |
 | `POST /api/experimental/web_search` | POST | ✅ (实验性) | ❌ 未实现 | Web 搜索（实验性） |
 | `POST /api/experimental/web_fetch` | POST | ✅ (实验性) | ❌ 未实现 | Web 抓取（实验性） |
-| `GET /api/experimental/model-recommendations` | GET | ✅ (实验性) | ❌ 未实现 | 模型推荐（实验性） |
+| `GET /api/experimental/model-recommendations` | GET | ✅ (实验性) | ✅ 已实现 | 模型推荐（实验性），返回空列表 |
 | `/healthz` | GET | — | ✅ 已实现 | 健康检查（非 Ollama 标准，运维用） |
 
 ---

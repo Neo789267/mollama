@@ -93,6 +93,7 @@ export interface ModelRequestDefaults {
 export interface ModelSupportFlags {
   tools: boolean;
   vision: boolean;
+  thinking: boolean;
 }
 
 export interface ThinkingStatePayloadOverrides {
@@ -111,8 +112,12 @@ export interface ModelDefinition {
   displayName: string;
   provider: string;
   targetModel: string;
+  /** Origin of the provider's upstream baseUrl, reported as remote_host in Ollama API responses. */
+  remoteHost?: string;
   contextWindow: number;
   maxOutputTokens: number;
+  /** Ollama model family reported in details.family (e.g. "deepseek-v4-pro"). Defaults to "proxy". */
+  family?: string;
   supports: ModelSupportFlags;
   parameters: ModelRequestDefaults;
   payloadOverrides: ModelRequestDefaults;
@@ -126,6 +131,8 @@ export interface ModelDefinitionConfig {
   targetModel: string;
   contextWindow: number;
   maxOutputTokens: number;
+  /** Ollama model family reported in details.family (e.g. "deepseek-v4-pro"). Defaults to "proxy". */
+  family?: string;
   supports: ModelSupportFlags;
   parameters: ModelRequestDefaults;
   payloadOverrides: ModelRequestDefaults;

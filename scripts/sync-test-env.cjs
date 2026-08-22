@@ -21,6 +21,7 @@ const targetPackageLockPath = path.join(targetRootDir, 'package-lock.json');
 const providerAliasGroups = new Map([
   ['deepseek', ['deepseek', 'deepseekapikey', 'deepseekkey']],
   ['kimi', ['kimi', 'kimiapikey', 'moonshot', 'moonshotapikey', 'moonshotkey']],
+  ['kimi-for-coding', ['kimiforcoding', 'kimiforcodingapikey', 'kimiforcodingkey', 'kfc']],
   ['mimo', ['mimo', 'mimoapikey', 'xiaomi', 'xiaomimimo', 'xiaomimimoapikey', 'tokenplan']],
 ]);
 
@@ -54,8 +55,15 @@ function normalizeAlias(value) {
   return value.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-function resolveProviderName(rawName) {
+function resolveProviderName(rawName, providerEnvNames) {
   const normalized = normalizeAlias(rawName);
+
+  // Prefer an exact match on the env var name referenced by apiKey "env:<NAME>".
+  for (const [provider, envName] of providerEnvNames) {
+    if (normalizeAlias(envName) === normalized) {
+      return provider;
+    }
+  }
 
   for (const [provider, aliases] of providerAliasGroups) {
     if (aliases.includes(normalized)) {
@@ -66,7 +74,7 @@ function resolveProviderName(rawName) {
   return null;
 }
 
-function parseKeyFile(rawText, providerOrder) {
+function parseKeyFile(rawText, providerOrder, providerEnvNames) {
   const resolved = new Map();
   const warnings = [];
   const orderedValues = [];
@@ -116,7 +124,7 @@ function parseKeyFile(rawText, providerOrder) {
   }
 
   for (const [rawName, rawValue] of namedValues) {
-    const providerName = resolveProviderName(rawName);
+    const providerName = resolveProviderName(rawName, providerEnvNames);
     if (!providerName) {
       warnings.push(`Ignoring unrecognized key entry "${rawName}" in ${targetKeysPath}.`);
       continue;
@@ -156,12 +164,38 @@ function copyFile(sourcePath, targetPath) {
   fs.copyFileSync(sourcePath, targetPath);
 }
 
+function collectProviderEnvNames(providers) {
+  const envNames = new Map();
+  for (const [providerName, provider] of Object.entries(providers)) {
+    const apiKey = provider && provider.upstream ? provider.upstream.apiKey : undefined;
+    if (typeof apiKey === 'string' && apiKey.startsWith('env:')) {
+      envNames.set(providerName, apiKey.slice(4));
+    }
+  }
+  return envNames;
+}
+
+function writeKeyFileTemplate(providerEnvNames) {
+  const lines = [
+    '# mollama test environment API keys. Fill in the values after the "=" signs.',
+    '# This file lives only in the test environment and survives re-syncs; never commit real keys to the repo.',
+    '',
+  ];
+  for (const [provider, envName] of providerEnvNames) {
+    lines.push(`# provider: ${provider}`, `${envName}=`, '');
+  }
+
+  fs.mkdirSync(path.dirname(targetKeysPath), { recursive: true });
+  fs.writeFileSync(targetKeysPath, `${lines.join('\n')}\n`, 'utf8');
+}
+
 function replaceApiKeys() {
   ensureExists(targetModelsPath, 'Target models config');
 
   const modelsConfig = JSON.parse(fs.readFileSync(targetModelsPath, 'utf8'));
   const providers = modelsConfig.providers || {};
   const providerOrder = Object.keys(providers);
+  const providerEnvNames = collectProviderEnvNames(providers);
 
   if (providerOrder.length === 0) {
     warn(`No providers found in ${targetModelsPath}; skipping API key replacement.`);
@@ -172,10 +206,11 @@ function replaceApiKeys() {
   if (fs.existsSync(targetKeysPath)) {
     rawKeysText = fs.readFileSync(targetKeysPath, 'utf8');
   } else {
-    warn(`Key file not found at ${targetKeysPath}; copied placeholders were kept.`);
+    writeKeyFileTemplate(providerEnvNames);
+    warn(`Key file not found; wrote a template to ${targetKeysPath}. Fill in the keys and re-run sync:test-env.`);
   }
 
-  const { resolved, warnings } = parseKeyFile(rawKeysText, providerOrder);
+  const { resolved, warnings } = parseKeyFile(rawKeysText, providerOrder, providerEnvNames);
   for (const message of warnings) {
     warn(message);
   }
@@ -192,6 +227,12 @@ function replaceApiKeys() {
   }
 
   fs.writeFileSync(targetModelsPath, `${JSON.stringify(modelsConfig, null, 2)}\n`, 'utf8');
+
+  const missingProviders = providerOrder.filter((provider) => !resolved.has(provider));
+  if (missingProviders.length > 0) {
+    warn(`No key resolved for: ${missingProviders.join(', ')}. Add them to ${targetKeysPath}.`);
+  }
+
   return updatedProviders;
 }
 
@@ -247,6 +288,8 @@ function main() {
 
   validateCopiedConfig();
   log(`Test environment is ready at ${targetRootDir}`);
+  log(`API keys file (persists across syncs): ${targetKeysPath}`);
+  log(`Start it with: npm run start:test-env`);
 }
 
 try {
