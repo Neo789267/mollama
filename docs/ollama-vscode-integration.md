@@ -2,9 +2,10 @@
 
 本文档记录 [ollama-vscode](https://github.com/ollama/ollama-vscode)（Ollama 官方 VS Code 扩展）与 Ollama 的集成机制、mollama 的适配方案，以及与 GitHub Copilot Chat BYOK 方式的异同对比。
 
-> **研究日期**: 2026-08-22
-> **插件版本**: main 分支 0.0.8（当前市场版本）+ PR #41「Support thinking models」（open 未合并，官方维护者已认可并接手）
-> **ollama-js 版本**: 0.6.3（插件 lockfile 锁定）
+> **研究日期**: 2026-08-22（2026-09-20 复核 0.0.9 变更）
+> **插件版本**: main 分支 0.0.9（当前市场版本）+ PR #41「Support thinking models」（截至 0.0.9 仍未合并）
+> **ollama-js 版本**: 0.6.3（插件 lockfile 锁定，0.0.9 未变）
+> **0.0.8 → 0.0.9 变更**: 仅两个客户端健壮性修复——PR #64 修复未消费响应被 GC 掐断（见第六节"后续"）、PR #61 容忍缺 `done` 标记但已完结的流（见第三节"硬性要求"）；无端点/协议/依赖变化，mollama 代码无需改动
 
 ---
 
@@ -85,6 +86,7 @@
 
 **硬性要求**：
 - 流必须以含 `"done": true` 的块结束，否则 ollama-js 的 `AbortableAsyncIterator` 抛 `"Did not receive done or success response in stream."`。
+- **0.0.9 起（PR #61）**：插件消费流时记录是否出现过 `done` / `status: "success"` / `done_reason` 任一标记；若 ollama-js 仍抛上述错误但流已被标记完结，则吞掉错误并照常汇总 usage——即客户端额外容忍"以 `done_reason` 完结但缺 `done` 标记"的流。mollama 每个终止块都发 `done: true` + `done_reason` 且有兜底终止块，新旧版本下均满足。
 - 流中任何含 `"error"` 字段的块会抛错。
 - 非 2xx 错误响应需为 JSON `{"error": "..."}`（HTTP 401 会触发 "Run ollama signin" 提示，mollama 不应返回 401）。
 
@@ -126,8 +128,8 @@
 |--------|------|
 | `/api/tags` 增强 | 条目新增 `capabilities`（含 `thinking`）、顶层 `context_length` 与 `remote_host`/`remote_model`；`details.family`/`families` 支持按模型配置（`family` 字段，默认 `"proxy"`） |
 | `/api/show` | 已有 `capabilities`（新增 `thinking`）、`model_info["proxy.context_length"]` 与 `remote_host`/`remote_model`，可被插件探测逻辑命中 |
-| 远程模型标记 | `/api/tags`、`/api/show`、`/api/ps` 均返回 `remote_host`（provider 上游 origin，无法解析时回退 `https://ollama.com:443`）与 `remote_model`，与真实 Ollama 云模型一致。插件据此把模型视为远程（`local: false`），**跳过 chat 前的 `/api/ps` 机器上下文检查**，消除响应流延迟消费窗口（背景与定位过程见第六节） |
-| 保底 `done:true` | 上游 SSE 缺少 `finish_reason` 就结束时，流尾部自动补发终止块（`openai-to-ollama.ts`），避免 ollama-js 抛错 |
+| 远程模型标记 | `/api/tags`、`/api/show`、`/api/ps` 均返回 `remote_host`（provider 上游 origin，无法解析时回退 `https://ollama.com:443`）与 `remote_model`，与真实 Ollama 云模型一致。插件据此把模型视为远程（`local: false`），**跳过 chat 前的 `/api/ps` 机器上下文检查**，消除响应流延迟消费窗口（背景与定位过程见第六节）。0.0.9 起客户端已修复 GC 根因（PR #64），该标记转为"兼容 ≤0.0.8 客户端 + 跳过 ps 检查的性能优化"，继续保留 |
+| 保底 `done:true` | 上游 SSE 缺少 `finish_reason` 就结束时，流尾部自动补发终止块（`openai-to-ollama.ts`），避免 ollama-js 抛错。0.0.9 起（PR #61）客户端还容忍以 `done_reason`/`status:"success"` 完结的流，本兜底依旧充分 |
 | tool_call id 保留 | assistant 历史 `tool_calls[].id` 原样透传上游，保证与 `role:"tool"` 消息的 `tool_call_id` 一致（`ollama-to-openai.ts`） |
 | tools schema 规范化 | 上游 OpenAI 兼容接口严格校验 JSON Schema（如 DeepSeek 要求 `type: "object"`），而插件可能发出 `type: null` 或缺失的 `parameters`；转换层统一兜底为 `type: "object"`（`ollama-to-openai.ts`） |
 | 上游错误透传 | 上游 ≥400 时返回 Ollama 标准错误 `{"error": "<上游真实消息>"}`，不再映射成假成功负载（`server.ts`） |
@@ -205,6 +207,10 @@ Copilot 内置 BYOK 走 `/v1/chat/completions` 的 `chatMLFetcher`，拿到响�
 ### 修复
 
 mollama 在 `/api/tags`、`/api/show`、`/api/ps` 中返回 `remote_host`（provider 上游 origin）与 `remote_model`——这正是真实 Ollama 对云模型的标准标记。插件据此把模型视为远程（`local: false`），**整体跳过** ps 上下文检查，响应头到达后 1~2ms 即开始消费，窗口归零。修复后实测 56/56 成功、ps 轮询消失。
+
+### 后续：0.0.9 修复客户端根因（PR #64）
+
+0.0.9 的 `chatFetch.ts` 用一个 `Set<Response>` 强引用钉住所有未读完的 `Response`（dispose 时才清空），undici 的 finalizer 无法再提前取消未消费的流——本节根因链第 2 环已在客户端侧断开。对 0.0.9+ 客户端，mollama 的 `remote_host` 标记不再是防 GC 掐断的必需品，但仍保留：①兼容停留在 ≤0.0.8 的客户端；②跳过 ps 检查可消除 ps 轮询与消费前延迟窗口、避免 <64K 上下文警告路径，是纯性能/体验收益。
 
 ### 排查启示
 
