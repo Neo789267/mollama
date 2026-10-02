@@ -368,12 +368,12 @@ An array of model definitions under each provider. At least one model per provid
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `id` | `string` | ✅ | Unique model identifier. Used for lookup by clients. |
-| `displayName` | `string` | ❌ | Human-readable name shown in Ollama discovery APIs. Defaults to `id`. |
+| `id` | `string` | ✅ | Stable model identifier returned as `model` by `/api/tags` and `/api/ps` and used for client requests. |
+| `displayName` | `string` | ❌ | Human-readable `name` shown in Ollama discovery APIs. Defaults to `id`; remains accepted as a request alias. |
 | `targetModel` | `string` | ✅ | The actual model ID sent to the upstream provider. |
 | `contextWindow` | `number` | ✅ | Context window size in tokens. |
-| `maxOutputTokens` | `number` | ✅ | Maximum output tokens. Used as default `max_tokens` and as a hard cap. |
-| `family` | `string` | ❌ | Ollama model family reported as `details.family`/`details.families` in `/api/tags` and `/api/show`. Defaults to `"proxy"`. Set it to the canonical Ollama model name (e.g. `"deepseek-v4-pro"`) so frontends that match capabilities by family (such as ollama-vscode's thinking-effort selector) recognize the model. |
+| `maxOutputTokens` | `number` | ✅ | Maximum output tokens. Used as default `max_tokens` and as a hard cap; returned as `max_output_tokens` in `/api/tags` and `/api/show`. |
+| `family` | `string` | ❌ | Ollama model family reported as `details.family`/`details.families` in `/api/tags` and `/api/show`. Defaults to `"proxy"`. Set it to the canonical Ollama model name (e.g. `"deepseek-v4-pro"`) for clients that match capabilities by family. ollama-vscode's proposed thinking-effort selector (PR #41) is not yet merged. |
 | `supports` | `object` | ❌ | Capability flags (see below). |
 | `parameters` | `object` | ❌ | Per-model parameters merged into every request for this model. |
 | `payloadOverrides` | `object` | ❌ | Parameters force-applied after the client payload. |

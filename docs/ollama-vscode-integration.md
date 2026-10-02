@@ -2,8 +2,8 @@
 
 本文档记录 [ollama-vscode](https://github.com/ollama/ollama-vscode)（Ollama 官方 VS Code 扩展）与 Ollama 的集成机制、mollama 的适配方案，以及与 GitHub Copilot Chat BYOK 方式的异同对比。
 
-> **研究日期**: 2026-08-22
-> **插件版本**: main 分支 0.0.8（当前市场版本）+ PR #41「Support thinking models」（open 未合并，官方维护者已认可并接手）
+> **研究日期**: 2026-08-22；**同步核对**: 2026-10-02
+> **插件版本**: main 分支 0.0.11（含 2026-09-30 的后续修复）；PR #41「Support thinking models」仍未合并
 > **ollama-js 版本**: 0.6.3（插件 lockfile 锁定）
 
 ---
@@ -13,15 +13,15 @@
 | 阶段 | BYOK（Copilot Chat） | ollama-vscode 插件 |
 |------|----------------------|--------------------|
 | 接入方式 | Copilot 内置 Ollama provider（Manage Models） | `vscode.lm.registerLanguageModelChatProvider('ollama-models', ...)`，模型出现在 Copilot Chat 模型选择器的 "Ollama" 分组 |
-| 连接实现 | VS Code 内置 fetch | `ollama` npm JS 库（ollama-js 0.6.3）+ undici（headersTimeout 10 分钟），**纯 HTTP，绝不调用 ollama CLI** |
+| 连接实现 | VS Code 内置 fetch | `ollama` npm JS 库（ollama-js 0.6.3）+ undici（推理首包超时默认 10 分钟，可在插件设置中调整），**纯 HTTP，绝不调用 ollama CLI** |
 | 版本检查 | `GET /api/version`，**硬门槛 ≥ 0.6.4** | `GET /api/version`，仅记日志，**失败容忍** |
-| 模型列表 | `GET /api/tags`（只读 `model` 字段） | `GET /api/tags`（读 `name`、`capabilities`、`context_length`、`details.family` 等） |
+| 模型列表 | `GET /api/tags`（只读 `model` 字段） | `GET /api/tags`（用 `name` 展示、`model` 作为请求 ID；读取 `capabilities`、`context_length`、`max_output_tokens`、`details.family` 等） |
 | 模型详情 | `POST /api/show`（必需，解析 `model_info`/`capabilities`） | `POST /api/show`（**失败容忍**，能力/上下文长度探测） |
 | **推理请求** | **`POST /v1/chat/completions`（OpenAI SSE）** | **`POST /api/chat`（Ollama 原生 NDJSON 流）——最大差异** |
 | 上下文检查 | 不用 | `GET /api/ps`（仅对 `local` 模型：chat 开始时轮询 `context_length`；远程模型跳过） |
 | 模型推荐 | 不用 | `GET /api/experimental/model-recommendations`（唯一不走 ollama-js 的裸 fetch，**失败容忍**） |
 | embeddings | 不用（Copilot 自带 embedding 服务） | **不用**（无任何 embed 调用，无 RAG/代码库索引） |
-| thinking | 支持（`/v1` 路径需 `reasoning_content → thinking` 转换） | main(0.0.8) 完全不处理；PR #41 加入完整支持（见第四节） |
+| thinking | 支持（`/v1` 路径需 `reasoning_content → thinking` 转换） | main(0.0.11) 仍不处理；PR #41 尚未合并（见第四节） |
 | 其他 | 不用 keep_alive | 从不发送 `keep_alive`/`format`/`suffix`，无 FIM、无卸载语义；无 CORS 问题（Node 侧 fetch） |
 
 **关键结论**：BYOK 是"发现走原生 API、推理走 OpenAI 兼容 API"的混合模式；ollama-vscode 插件**全部走 Ollama 原生 API**，推理只打 `/api/chat`。
@@ -34,7 +34,7 @@
 |------|------|----------|:--------:|
 | `/api/version` | GET | 每次模型发现时 | ✅ |
 | `/api/tags` | GET | 模型列表发现 | ❌（必须 200 + 合法 JSON，否则模型全部消失） |
-| `/api/show` | POST | 每个模型 hydrate 一次，请求体固定 `{"model": "<name>", "verbose": false}` | ✅ |
+| `/api/show` | POST | 需要 hydrate 的模型使用 `{"model": "<id>", "verbose": false}`；远程模型元数据完整时跳过 | ✅ |
 | `/api/chat` | POST | 聊天请求（永远 `stream: true`） | ❌ |
 | `/api/ps` | GET | 本地模型 chat 开始时轮询已分配上下文长度 | ✅ |
 | `/api/experimental/model-recommendations` | GET | tags 之后（2 秒超时），期望 `{"recommendations": [{"model": "..."}]}` | ✅ |
@@ -44,9 +44,11 @@
 ### 模型过滤规则
 
 - 不要求模型真的被 pull，不检查文件/size。
+- `/api/tags` 的 `name` 是展示名，`model` 是请求 ID；0.0.11 使用后者调用 `/api/show`、`/api/chat`，并仍允许通过名称配置筛选模型。mollama 使用稳定的 `id` 作为请求 ID，同时继续接受展示名作为旧客户端别名。已有会话或模型选择若按旧展示名保存，升级后可能需要重新选择模型。
 - `/api/tags` 条目中 `remote_host` 非空，或名称 tag 为 `cloud`/以 `-cloud` 结尾 → 标记为远程模型（`local: false`）。mollama 的条目带 `remote_host`（上游 origin）与 `remote_model`，与真实 Ollama 云模型一致，因此全部视为远程模型——插件跳过 chat 前的机器上下文检查（见第五节），流在响应头到达后立即开始消费。
 - 能力标记：tags 条目与 show 响应的 `capabilities` 合并后小写匹配——含 `tools`/`tool` → 工具调用；含 `vision`/`image` → 图片输入。
 - 上下文窗口探测顺序（`sharedContextWindow()`）：先从 show 的 `parameters`/`modelfile` 文本正则解析 `num_ctx`，再查顶层/`details`/`model_info` 中以 `.context_length` 结尾的键（mollama tags 顶层的 `context_length` 与 show 的 `proxy.context_length` 均可命中），都没有则回退 32768。远程模型在 tags 已含 `capabilities` + `context_length` 时不再发起 show 请求。
+- 输出上限优先从 tags/show 的 `max_output_tokens` 读取；否则插件回退到 4096。mollama 从每个模型的 `maxOutputTokens` 配置返回该字段，供插件正确计算共享上下文中的输入预算。
 - `/api/ps` 中若匹配模型的 `context_length < 65536` 会弹"上下文窗口太小"警告；mollama 返回全部已配置模型且 `context_length` 保底 64K → 不警告。
 
 ---
@@ -57,7 +59,7 @@
 
 ```json
 {
-  "model": "<name>",
+  "model": "<id>",
   "messages": [ ... ],
   "stream": true,
   "tools": [ ... ],
@@ -96,7 +98,7 @@
 
 ## 四、PR #41「Support thinking models」机制
 
-> 状态：**open 未合并**（2026-08-11 维护者留言认可并接手完善）。main 分支 0.0.8 完全忽略 thinking。以下机制在 PR 合并后生效。
+> 状态：截至 2026-10-02 **open 未合并**。main 分支 0.0.11 仍完全忽略 thinking。以下机制仅描述 PR #41 的提案，合并前需重新核对最终实现。
 
 ### 4.1 能力识别与 Thinking Effort 选择器
 
@@ -124,8 +126,8 @@
 
 | 适配项 | 实现 |
 |--------|------|
-| `/api/tags` 增强 | 条目新增 `capabilities`（含 `thinking`）、顶层 `context_length` 与 `remote_host`/`remote_model`；`details.family`/`families` 支持按模型配置（`family` 字段，默认 `"proxy"`） |
-| `/api/show` | 已有 `capabilities`（新增 `thinking`）、`model_info["proxy.context_length"]` 与 `remote_host`/`remote_model`，可被插件探测逻辑命中 |
+| `/api/tags` 增强 | `name` 返回展示名、`model` 返回稳定 ID；另含 `capabilities`（含 `thinking`）、顶层 `context_length`、`max_output_tokens` 与 `remote_host`/`remote_model`；`details.family`/`families` 支持按模型配置（`family` 字段，默认 `"proxy"`） |
+| `/api/show` | 已有 `capabilities`（含 `thinking`）、`model_info["proxy.context_length"]`、顶层 `max_output_tokens` 与 `remote_host`/`remote_model`，可被插件探测逻辑命中 |
 | 远程模型标记 | `/api/tags`、`/api/show`、`/api/ps` 均返回 `remote_host`（provider 上游 origin，无法解析时回退 `https://ollama.com:443`）与 `remote_model`，与真实 Ollama 云模型一致。插件据此把模型视为远程（`local: false`），**跳过 chat 前的 `/api/ps` 机器上下文检查**，消除响应流延迟消费窗口（背景与定位过程见第六节） |
 | 保底 `done:true` | 上游 SSE 缺少 `finish_reason` 就结束时，流尾部自动补发终止块（`openai-to-ollama.ts`），避免 ollama-js 抛错 |
 | tool_call id 保留 | assistant 历史 `tool_calls[].id` 原样透传上游，保证与 `role:"tool"` 消息的 `tool_call_id` 一致（`ollama-to-openai.ts`） |
@@ -134,11 +136,11 @@
 | `think` 字符串档位 | `/api/chat` 接受 boolean 或字符串 `think`；字符串档位（如 `"high"`/`"max"`）映射为 `thinking: {type: "enabled"}` + `reasoning_effort: "<level>"` 发往上游（`provider-policy.ts`），与 DeepSeek 上游实际接受的字段一致；`think: false` → `thinking.type: "disabled"` 并清除继承的 `reasoning_effort` |
 | 思考链连续性 | assistant 历史 `thinking` 字段 → 上游 `reasoning_content`（已有逻辑），配合 `reasoningHistory` 模式，PR #41 回传的 thinking 历史可完整透传 |
 | `/api/experimental/model-recommendations` | 返回 200 `{"recommendations": []}` |
-| `/api/ps` | 返回全部已配置模型（视为已加载），含 `remote_host`/`remote_model`，`context_length` 保底 64K（无上下文警告） |
+| `/api/ps` | 返回全部已配置模型（视为已加载），`name`/`model` 分别为展示名/稳定 ID；含 `remote_host`/`remote_model`，`context_length` 保底 64K（无上下文警告） |
 
 ### 配置建议
 
-> 注意：PR #41 尚未合并进市场版本（当前 0.0.8）。0.0.8 下插件不发送 `think`、不显示档位选择器，因此**现阶段仍需按 reasoning effort 拆分成多个模型**（如 `DeepSeek V4 Flash` / `DeepSeek V4 Flash High` / `DeepSeek V4 Flash Max`），用静态 `parameters.reasoning_effort` 区分。
+> 注意：PR #41 截至 2026-10-02 仍未合并。0.0.11 下插件不发送 `think`、不显示档位选择器，因此**现阶段仍需按 reasoning effort 拆分成多个模型**（如 `DeepSeek V4 Flash` / `DeepSeek V4 Flash High` / `DeepSeek V4 Flash Max`），用静态 `parameters.reasoning_effort` 区分。
 
 拆分模型的同时建议保留以下两个字段，PR #41 合并后可无缝切换到单模型 + UI 选档位：
 
@@ -172,7 +174,7 @@
 
 ## 六、已踩坑：插件模式下流式响应被 GC 掐断
 
-> 2026-08-22 定位。这是适配过程中最隐蔽的一个坑，完整记录以备后续参考。
+> 2026-08-22 定位的历史故障。插件 0.0.9 已在客户端持有未读取响应，修复响应生命周期问题；以下记录保留当时的复现与 mollama 侧适配依据。`remote_host` 仍准确标记代理模型为远程模型。
 
 ### 现象
 
@@ -202,7 +204,7 @@ Copilot 内置 BYOK 走 `/v1/chat/completions` 的 `chatMLFetcher`，拿到响�
 - 复现：用插件**同款依赖**（其 `node_modules` 下的 undici 7.28 + ollama-js 0.6.3）写本地 replica，完整复刻"chat + ps 轮询 + 延迟消费"流程。
 - 二分（每轮 20~60 次）：完整流程偶发失败（1/30）；窗口期强制 GC（`node --expose-gc`）→ **19/20 失败**；强引用钉住 `Response` + 强制 GC → **0/20**；无 ps 检查（远程模型路径）+ 强制 GC → **0/20**。
 
-### 修复
+### 当时的 mollama 侧修复
 
 mollama 在 `/api/tags`、`/api/show`、`/api/ps` 中返回 `remote_host`（provider 上游 origin）与 `remote_model`——这正是真实 Ollama 对云模型的标准标记。插件据此把模型视为远程（`local: false`），**整体跳过** ps 上下文检查，响应头到达后 1~2ms 即开始消费，窗口归零。修复后实测 56/56 成功、ps 轮询消失。
 
@@ -217,9 +219,9 @@ mollama 在 `/api/tags`、`/api/show`、`/api/ps` 中返回 `remote_host`（prov
 
 ```
 1. GET /api/version                          → {"version":"0.6.4"}          ✅
-2. GET /api/tags                             → capabilities/context_length/remote_host ✅
-3. POST /api/show                            → model_info + capabilities   ✅
-4. GET /api/ps                               → 全部模型 + context_length   ✅
+2. GET /api/tags                             → name/model 分离 + capabilities/context_length/max_output_tokens ✅
+3. POST /api/show (model ID)                 → model_info + max_output_tokens ✅
+4. GET /api/ps                               → 全部模型 + 稳定 ID/context_length ✅
 5. GET /api/experimental/model-recommendations → {"recommendations":[]}    ✅
 6. POST /api/chat (stream)                   → NDJSON，末块 done:true      ✅
 7. POST /api/chat (tools)                    → tool_call id 一致           ✅
