@@ -85,15 +85,18 @@ for (const model of models) {
   "models": [
     {
       "name": "DeepSeek V4 Flash",
-      "model": "DeepSeek V4 Flash",
+      "model": "deepseek-v4-flash-default",
       "modified_at": "1970-01-01T00:00:00.000Z",
       "size": 0,
-      "digest": "sha256:42e0625fad86595de00896e457b00a368950ad586c3477aae9c9fd806ed5ace5",
+      "digest": "sha256:c2601b391a0696010cd54b9dbae1528a357c1aa64c2ca099822641a2602aee31",
+      "capabilities": ["completion", "tools", "thinking"],
+      "context_length": 1000000,
+      "max_output_tokens": 384000,
       "details": {
         "parent_model": "",
         "format": "proxy",
-        "family": "proxy",
-        "families": ["proxy"],
+        "family": "deepseek-v4-flash",
+        "families": ["deepseek-v4-flash"],
         "parameter_size": "unknown",
         "quantization_level": "unknown"
       }
@@ -104,7 +107,7 @@ for (const model of models) {
 
 | 字段 | Copilot 是否使用 | 状态 | 说明 |
 |------|:---:|:----:|------|
-| `models[].model` | ✅ 必需 | ✅ | 传给 `/api/show` |
+| `models[].model` | ✅ 必需 | ✅ | 稳定 ID，传给 `/api/show`；`name` 是展示名 |
 | `models[].name` | ❌ 不读 | — | 展示用 |
 | `models[].modified_at` | ❌ 不读 | — | 展示用 |
 | `models[].size` | ❌ 不读 | — | 展示用 |

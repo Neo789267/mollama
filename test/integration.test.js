@@ -130,7 +130,7 @@ test('POST /api/chat maps Ollama request/response with non-stream mode', async (
         'User-Agent': 'GitHubCopilotChat/0.46.2',
       },
       body: JSON.stringify({
-        model: 'Demo Model',
+        model: 'demo-model',
         stream: false,
         system: 'You are concise',
         messages: [{ role: 'user', content: 'hi' }],
@@ -210,7 +210,7 @@ test('POST /api/embed maps OpenAI embeddings response to Ollama embed format', a
   }
 });
 
-test('GET /api/tags exposes capabilities, context_length and family', async () => {
+test('model discovery exposes a stable request ID and the configured output limit', async () => {
   const { loadAppConfig } = require('../dist/config/load.js');
   const { createAppServer } = require('../dist/server.js');
 
@@ -234,10 +234,36 @@ test('GET /api/tags exposes capabilities, context_length and family', async () =
     assert.equal(json.models.length, 1);
     const model = json.models[0];
     assert.equal(model.name, 'Demo Model');
+    assert.equal(model.model, 'demo-model');
     assert.deepEqual(model.capabilities, ['completion', 'tools', 'vision', 'thinking']);
     assert.equal(model.context_length, 64000);
+    assert.equal(model.max_output_tokens, 2048);
     assert.equal(model.details.family, 'demo-family');
     assert.deepEqual(model.details.families, ['demo-family']);
+
+    const showResponse = await fetch(`http://127.0.0.1:${appPort}/api/show`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: model.model, verbose: false }),
+    });
+    assert.equal(showResponse.status, 200);
+    const show = await showResponse.json();
+    assert.equal(show.max_output_tokens, 2048);
+    assert.equal(show.model_info['proxy.context_length'], 64000);
+
+    const processesResponse = await fetch(`http://127.0.0.1:${appPort}/api/ps`);
+    assert.equal(processesResponse.status, 200);
+    const processes = await processesResponse.json();
+    assert.equal(processes.models[0].name, 'Demo Model');
+    assert.equal(processes.models[0].model, model.model);
+
+    // Existing clients may still send the display name after the discovery ID changes.
+    const legacyShowResponse = await fetch(`http://127.0.0.1:${appPort}/api/show`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: model.name, verbose: false }),
+    });
+    assert.equal(legacyShowResponse.status, 200);
   } finally {
     await new Promise((resolve) => app.close(resolve));
     await new Promise((resolve) => upstream.close(resolve));

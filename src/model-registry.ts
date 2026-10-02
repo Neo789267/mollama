@@ -92,7 +92,7 @@ export function createModelRegistry(models: ModelDefinition[]): ModelRegistry {
     buildTagsResponse: () => ({
       models: modelList.map((model) => ({
         name: model.displayName,
-        model: model.displayName,
+        model: model.id,
         // Mark every model as remote-served, mirroring real Ollama cloud
         // entries. ollama-vscode treats such models as non-local and skips
         // its machine-context check, which would otherwise delay consumption
@@ -106,6 +106,7 @@ export function createModelRegistry(models: ModelDefinition[]): ModelRegistry {
         digest: buildModelDigest(model.id),
         capabilities: buildModelCapabilities(model),
         context_length: model.contextWindow,
+        max_output_tokens: model.maxOutputTokens,
         details: buildModelDetails(model),
       })),
     }),
@@ -114,6 +115,7 @@ export function createModelRegistry(models: ModelDefinition[]): ModelRegistry {
       modelfile: `FROM ${model.targetModel}`,
       parameters: '',
       template: '',
+      max_output_tokens: model.maxOutputTokens,
       details: buildModelDetails(model),
       model_info: {
         'general.basename': model.displayName,
@@ -130,7 +132,7 @@ export function createModelRegistry(models: ModelDefinition[]): ModelRegistry {
     buildPsResponse: () => ({
       models: modelList.map((model) => ({
         name: model.displayName,
-        model: model.displayName,
+        model: model.id,
         remote_host: remoteHostOf(model),
         remote_model: model.targetModel,
         modified_at: new Date(0).toISOString(),
