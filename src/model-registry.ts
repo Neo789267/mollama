@@ -19,6 +19,12 @@ function buildModelReferences(models: ModelDefinition[]): Map<string, ModelDefin
     if (model.displayName !== model.id) {
       registerModelReference(references, model.displayName, model);
     }
+    for (const alias of model.aliases ?? []) {
+      const resolved = alias.thinking !== undefined && model.thinking
+        ? { ...model, thinking: { ...model.thinking, default: alias.thinking } }
+        : model;
+      registerModelReference(references, alias.id, resolved);
+    }
   }
 
   return references;
@@ -116,6 +122,7 @@ export function createModelRegistry(models: ModelDefinition[]): ModelRegistry {
       parameters: '',
       template: '',
       max_output_tokens: model.maxOutputTokens,
+      ...(model.thinking ? { thinking: { values: model.thinking.values, default: model.thinking.default } } : {}),
       details: buildModelDetails(model),
       model_info: {
         'general.basename': model.displayName,
