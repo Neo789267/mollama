@@ -10,6 +10,7 @@ import type {
   LoggingConfig,
   ModelDefinition,
   ModelDefinitionConfig,
+  ModelAlias,
   ModelProviderMap,
   ModelRequestDefaults,
   ModelsConfig,
@@ -21,6 +22,8 @@ import type {
   ServerConfig,
   SystemConfig,
   ThinkingStatePayloadOverrides,
+  ThinkingConfig,
+  ThinkingLevel,
   UpstreamConfig,
 } from '../types';
 import {
@@ -326,19 +329,82 @@ function loadModelDefinitionConfig(value: unknown, fieldName: string): ModelDefi
     `${fieldName}.requiresReasoningReplay has been removed; use ${fieldName}.reasoningHistory.mode instead`,
   );
 
+  const maxTokensField = value.maxTokensField;
+  assert(maxTokensField === undefined || maxTokensField === 'max_tokens' || maxTokensField === 'max_completion_tokens',
+    `${fieldName}.maxTokensField must be max_tokens or max_completion_tokens`);
+  const thinking = loadThinkingConfig(value.thinking, `${fieldName}.thinking`);
+  const supports = loadSupportFlags(value.supports, `${fieldName}.supports`);
+  const reasoningHistory = loadReasoningHistory(value.reasoningHistory, `${fieldName}.reasoningHistory`);
+  if (thinking) {
+    assert(supports.thinking, `${fieldName}.thinking requires supports.thinking: true`);
+    assert(!(thinking.values.includes(false) && reasoningHistory.mode === 'always'),
+      `${fieldName}: switchable thinking cannot use reasoningHistory.mode: always`);
+    // Keep one source of defaults and prevent late overrides from contradicting /api/show.
+    for (const [name, parameters] of Object.entries({
+      parameters: value.parameters,
+      payloadOverrides: value.payloadOverrides,
+      enabled: isRecord(value.payloadOverridesByThinking) ? value.payloadOverridesByThinking.enabled : undefined,
+      disabled: isRecord(value.payloadOverridesByThinking) ? value.payloadOverridesByThinking.disabled : undefined,
+    })) {
+      if (isRecord(parameters)) {
+        for (const key of ['think', 'thinking', 'reasoning_effort']) {
+          assert(parameters[key] === undefined, `${fieldName}.${name}.${key}: use the model thinking configuration instead`);
+        }
+      }
+    }
+  }
+
+  const aliases = loadOptionalArray<ModelAlias>(value.aliases, `${fieldName}.aliases`, (alias, index) => {
+    const aliasField = `${fieldName}.aliases[${index}]`;
+    assert(isRecord(alias), `${aliasField} must be an object`);
+    if (alias.thinking !== undefined) {
+      assert(thinking !== undefined && thinking.values.includes(alias.thinking as ThinkingLevel),
+        `${aliasField}.thinking must be one of the model thinking.values`);
+    }
+    return { id: asString(alias.id, `${aliasField}.id`), thinking: alias.thinking as ThinkingLevel | undefined };
+  });
+
   return {
     id: asString(value.id, `${fieldName}.id`),
     displayName: value.displayName === undefined ? asString(value.id, `${fieldName}.id`) : asString(value.displayName, `${fieldName}.displayName`),
     targetModel: asString(value.targetModel, `${fieldName}.targetModel`),
     contextWindow: asNumber(value.contextWindow, `${fieldName}.contextWindow`),
     maxOutputTokens: asNumber(value.maxOutputTokens, `${fieldName}.maxOutputTokens`),
+    maxTokensField,
     family: value.family === undefined ? undefined : asString(value.family, `${fieldName}.family`),
-    supports: loadSupportFlags(value.supports, `${fieldName}.supports`),
+    supports,
+    thinking,
+    aliases,
     parameters: value.parameters === undefined ? {} : asJsonRecord(value.parameters, `${fieldName}.parameters`),
     payloadOverrides: value.payloadOverrides === undefined ? {} : asJsonRecord(value.payloadOverrides, `${fieldName}.payloadOverrides`),
     payloadOverridesByThinking: loadThinkingStatePayloadOverrides(value.payloadOverridesByThinking, `${fieldName}.payloadOverridesByThinking`),
-    reasoningHistory: loadReasoningHistory(value.reasoningHistory, `${fieldName}.reasoningHistory`),
+    reasoningHistory,
   };
+}
+
+function loadThinkingConfig(value: unknown, fieldName: string): ThinkingConfig | undefined {
+  if (value === undefined) return undefined;
+  assert(isRecord(value), `${fieldName} must be an object`);
+  const mode = value.mode;
+  assert(mode === 'toggle' || mode === 'effort' || mode === 'fixed', `${fieldName}.mode must be toggle, effort, or fixed`);
+  assert(Array.isArray(value.values) && value.values.length > 0, `${fieldName}.values must be a non-empty array`);
+  const values = value.values.map((level, index) => {
+    assert(typeof level === 'boolean' || (typeof level === 'string' && level.trim() === level && level.length > 0 && level !== 'none'),
+      `${fieldName}.values[${index}] must be a boolean or non-empty effort name (use false for off)`);
+    return level as ThinkingLevel;
+  });
+  assert(new Set(values).size === values.length, `${fieldName}.values must not contain duplicates`);
+  assert(values.includes(value.default as ThinkingLevel), `${fieldName}.default must be in values`);
+  assert(mode !== 'effort' || !values.includes(true), `${fieldName}: effort mode needs named enabled levels, not true`);
+  assert(mode !== 'fixed' || (values.length === 1 && values[0] === true), `${fieldName}: fixed mode requires values: [true]`);
+  const rawAliases = value.effortAliases ?? {};
+  assert(isRecord(rawAliases), `${fieldName}.effortAliases must be an object`);
+  const effortAliases = Object.fromEntries(Object.entries(rawAliases).map(([alias, level]) => {
+    assert(alias.trim().length > 0 && !values.includes(alias), `${fieldName}.effortAliases must not redefine a canonical level`);
+    assert(values.includes(level as ThinkingLevel), `${fieldName}.effortAliases.${alias} must map to a declared value`);
+    return [alias, level as ThinkingLevel];
+  }));
+  return { mode, values, default: value.default as ThinkingLevel, effortAliases };
 }
 
 const DEFAULT_THINKING_FIELD: ReasoningFieldName = 'reasoning_content';

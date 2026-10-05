@@ -373,7 +373,10 @@ An array of model definitions under each provider. At least one model per provid
 | `targetModel` | `string` | ✅ | The actual model ID sent to the upstream provider. |
 | `contextWindow` | `number` | ✅ | Context window size in tokens. |
 | `maxOutputTokens` | `number` | ✅ | Maximum output tokens. Used as default `max_tokens` and as a hard cap; returned as `max_output_tokens` in `/api/tags` and `/api/show`. |
-| `family` | `string` | ❌ | Ollama model family reported as `details.family`/`details.families` in `/api/tags` and `/api/show`. Defaults to `"proxy"`. Set it to the canonical Ollama model name (e.g. `"deepseek-v4-pro"`) for clients that match capabilities by family. ollama-vscode's proposed thinking-effort selector (PR #41) is not yet merged. |
+| `family` | `string` | ❌ | Ollama family in tags/show, default `"proxy"`. Older clients use it for fallbacks; ollama-vscode 0.0.12 prefers explicit thinking metadata. |
+| `thinking` | `object` | ❌ | Control contract: `mode`, `values`, `default`, optional `effortAliases`. See below. |
+| `maxTokensField` | `"max_tokens"` \| `"max_completion_tokens"` | ❌ | Upstream budget field. Omitted keeps legacy behavior. For max_completion_tokens, convert max_tokens (including Ollama num_predict), clamp to maxOutputTokens, use the smaller budget when both are present, require positive integers, and remove max_tokens. Used by MiMo. |
+| `aliases` | `array` | ❌ | Hidden aliases `{ "id": "old-id", "thinking": "high" }`. Optional thinking changes the alias default, not explicit requests. Not listed in tags/ps. |
 | `supports` | `object` | ❌ | Capability flags (see below). |
 | `parameters` | `object` | ❌ | Per-model parameters merged into every request for this model. |
 | `payloadOverrides` | `object` | ❌ | Parameters force-applied after the client payload. |
@@ -386,18 +389,41 @@ An array of model definitions under each provider. At least one model per provid
 |-------|------|---------|-------------|
 | `tools` | `boolean` | `false` | Whether the model supports tool/function calling. |
 | `vision` | `boolean` | `false` | Whether the model supports image input. |
-| `thinking` | `boolean` | `false` | Whether the model supports reasoning/thinking output. Adds `"thinking"` to the Ollama `capabilities` array and allows the `think` request parameter (boolean or effort-level string such as `"high"`). A string level is forwarded to the upstream as `reasoning_effort` with `thinking.type: "enabled"`; `think: false` sends `thinking.type: "disabled"` and drops any inherited `reasoning_effort`. |
+| `thinking` | `boolean` | `false` | Whether the model produces reasoning; adds the thinking capability. The separate model `thinking` object declares accepted controls. Without it, legacy boolean/string think mapping remains available. |
 
 If a client sends a tool-calling request to a model with `tools: false`, or a vision request to a model with `vision: false`, the server returns a 400 error. Likewise, a `think` parameter sent to a model without any thinking support returns a 400 error.
 
+##### thinking
+
+A single model can declare multiple controls. `/api/show` exposes only values/default:
+
+```json
+{
+  "thinking": {
+    "mode": "toggle",
+    "values": [false, "low", "high", "max"],
+    "default": "high",
+    "effortAliases": { "medium": "high", "xhigh": "high" }
+  }
+}
+```
+
+`toggle` maps booleans to thinking.type and names to enabled + reasoning_effort. `effort` sends reasoning_effort only (false → none). `fixed` requires [true] and emits neither field. Values must be unique and non-empty; default must be included. Optional effort aliases are provider-specific and map to declared values. Unsupported requests return 400 before contacting the provider. Omitted controls use the declared default.
+
+Requires supports.thinking. Do not repeat control fields in model parameters, payloadOverrides or state overrides. Models permitting false cannot use reasoningHistory: always. Old configurations without this object retain their old behavior.
+
+Aliases must be unique across all IDs/names/aliases. An alias thinking default must be in the model's values. They preserve old preset requests while discovery contains only canonical models.
+
+See [thinking-levels.md](thinking-levels.md) for official DeepSeek/Kimi/MiMo requirements, precedence, VS Code settings, and migration.
+
 ##### payloadOverridesByThinking
 
-Conditional payload overrides that apply based on the `thinking.type` field in the request.
+Conditional overrides based on the resolved thinking state, including effort-only providers without a thinking.type field on the wire.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `enabled` | `object` | Parameters applied when `thinking.type` is `"enabled"`. |
-| `disabled` | `object` | Parameters applied when `thinking.type` is `"disabled"`. |
+| `enabled` | `object` | Parameters applied when resolved thinking is enabled. |
+| `disabled` | `object` | Parameters applied when resolved thinking is disabled. |
 
 This is useful for providers like Kimi that require different `temperature` values depending on whether thinking is active.
 
@@ -468,14 +494,14 @@ When a chat completion request arrives, parameters are merged in this order (lat
 7. model.targetModel                   (always set to the upstream model ID)
 ```
 
-After merging, if `max_tokens` is not set, it defaults to `model.maxOutputTokens`. Finally, `max_tokens` is clamped to not exceed `model.maxOutputTokens`.
+After merging, if `max_tokens` is not set, it defaults to `model.maxOutputTokens`. With the default maxTokensField, it is clamped to the model limit. With maxTokensField: "max_completion_tokens", the smaller non-null budget from max_tokens and max_completion_tokens is validated and clamped, then sent only as max_completion_tokens.
 
 After the merge order above, `mollama` applies the remaining thinking-specific compatibility logic in this order:
 
-1. Normalize top-level `think: true | false` to `thinking.type: "enabled" | "disabled"` for models that support thinking controls.
+1. Resolve and validate model-specific controls/defaults, or use the legacy think mapping when no policy exists.
 2. Apply `reasoningHistory` handling to historical assistant messages. For `always` mode, this runs regardless of the `thinking` parameter.
-3. Apply `payloadOverridesByThinking` based on the resolved `thinking.type` value. For `always` mode, the thinking type is treated as `"enabled"` — the `enabled` overrides apply even without the `thinking` parameter in the payload.
-4. Clamp `max_tokens` to `model.maxOutputTokens`.
+3. Apply payloadOverridesByThinking using the resolved state, including effort-only and fixed-thinking models.
+4. Validate, clamp and map the output budget according to maxTokensField.
 
 ---
 
@@ -633,7 +659,7 @@ Some models (e.g., DeepSeek, Kimi, MiMo) support a `thinking` parameter that ena
 
 `mollama` preserves provider-native thinking fields while also bridging Ollama-style clients:
 
-- Incoming top-level `think: true | false` is normalized to provider-native `thinking.type`.
+- Incoming top-level `think` uses the model's declared policy (toggle, effort-only, or fixed); without one, legacy boolean/string mapping to thinking.type remains available.
 - Historical assistant messages that contain `thinking` but not `reasoning_content` are replayed upstream with `reasoning_content` so providers like DeepSeek can keep multi-turn reasoning enabled.
 - Upstream chat-completion responses that contain `reasoning_content` are mirrored back as `thinking` in both text and SSE responses so Ollama-oriented clients can display the reasoning trace without losing the original provider field.
 
@@ -642,11 +668,11 @@ Some models (e.g., DeepSeek, Kimi, MiMo) support a `thinking` parameter that ena
 When `reasoningHistory` is configured on a model, `mollama` keeps the configured `thinking` mode and applies one of these explicit behaviors if historical assistant messages are missing `reasoning_content`:
 
 - `none` (default): forward the request unchanged.
-- `inject-empty`: add `reasoning_content: ""` to historical assistant messages that are missing the field. Only activates when `thinking.type` is `"enabled"`.
+- `inject-empty`: add `reasoning_content: ""` to historical assistant messages missing it, only when the resolved thinking state is enabled (including effort-only controls).
 - `always`: unconditionally add `reasoning_content: ""` to historical assistant messages that are missing the field, regardless of the `thinking` parameter. Intended for models like `kimi-k2.7-code` where Preserved Thinking is always on and the `thinking` parameter must not be sent to the upstream API.
-- `require-present`: reject the request with a 400 `missing_reasoning_content` error.
+- `require-present`: reject missing historical reasoning with a 400 `missing_reasoning_content` error when thinking is enabled.
 
-This makes provider-specific compatibility handling explicit and avoids silent thinking downgrades.
+Existing reasoning text is preserved. Empty-field injection is a compatibility fallback, not reconstruction of original reasoning. ollama-vscode 0.0.12 does not replay thinking history; full preservation requires a client that does, or strict require-present handling. See [thinking-levels.md](thinking-levels.md).
 
 ### payloadOverridesByThinking
 
