@@ -33,6 +33,7 @@ mollama works with **any** provider that exposes an OpenAI-compatible API. Popul
 | 📡 **Remote Deployment Ready** | Deploy to your own cloud server; frontends talk only to the cloud, bypassing most network restrictions |
 | ⚡ **Streaming First** | SSE → NDJSON conversion with incremental `tool_calls` buffering |
 | 🧠 **Reasoning Compat** | Automatic `reasoning_content` ↔ `thinking` format conversion |
+| 🎚️ **Per-Model Thinking Levels** | One model entry with configurable thinking levels, provider-specific mappings, and legacy preset aliases |
 | 🖼️ **Multimodal** | `images` array → OpenAI `content` parts with base64 data URLs |
 | 📋 **Structured Output** | `format: "json"` / `format: { schema }` → `response_format` mapping |
 
@@ -78,6 +79,7 @@ mollama uses two JSON config files:
 | 🔬 [Ollama vs OpenAI API Difference](docs/api-difference.md) | Full API endpoint coverage and protocol differences |
 | 🤖 [GitHub Copilot Chat Integration](docs/copilot-chat-integration.md) | How Copilot Chat discovers and uses Ollama models |
 | 🧩 [ollama-vscode Integration](docs/ollama-vscode-integration.md) | How the official Ollama VS Code extension calls the API and how mollama adapts to it |
+| 🎚️ [Thinking Levels](docs/thinking-levels.md) | DeepSeek/Kimi/MiMo contracts, single-model configuration, and migration notes |
 
 ## Project Structure
 

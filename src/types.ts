@@ -101,6 +101,23 @@ export interface ThinkingStatePayloadOverrides {
   disabled?: ModelRequestDefaults;
 }
 
+export type ThinkingLevel = boolean | string;
+
+export interface ThinkingConfig {
+  /** toggle: thinking.type (+ effort); effort: reasoning_effort only; fixed: no control fields. */
+  mode: 'toggle' | 'effort' | 'fixed';
+  values: ThinkingLevel[];
+  default: ThinkingLevel;
+  /** Provider-specific aliases, e.g. DeepSeek xhigh -> high, Kimi Code xhigh -> max. */
+  effortAliases: Record<string, ThinkingLevel>;
+}
+
+export interface ModelAlias {
+  id: string;
+  /** Preserve an old preset's default without adding it to model discovery. */
+  thinking?: ThinkingLevel;
+}
+
 export type ReasoningHistoryMode = 'none' | 'inject-empty' | 'always' | 'require-present';
 
 export interface ReasoningHistoryConfig {
@@ -116,8 +133,12 @@ export interface ModelDefinition {
   remoteHost?: string;
   contextWindow: number;
   maxOutputTokens: number;
+  /** Upstream output-budget field; omitted keeps legacy max_tokens behavior. */
+  maxTokensField?: 'max_tokens' | 'max_completion_tokens';
   /** Ollama model family reported in details.family (e.g. "deepseek-v4-pro"). Defaults to "proxy". */
   family?: string;
+  thinking?: ThinkingConfig;
+  aliases?: ModelAlias[];
   supports: ModelSupportFlags;
   parameters: ModelRequestDefaults;
   payloadOverrides: ModelRequestDefaults;
@@ -131,8 +152,11 @@ export interface ModelDefinitionConfig {
   targetModel: string;
   contextWindow: number;
   maxOutputTokens: number;
+  maxTokensField?: 'max_tokens' | 'max_completion_tokens';
   /** Ollama model family reported in details.family (e.g. "deepseek-v4-pro"). Defaults to "proxy". */
   family?: string;
+  thinking?: ThinkingConfig;
+  aliases?: ModelAlias[];
   supports: ModelSupportFlags;
   parameters: ModelRequestDefaults;
   payloadOverrides: ModelRequestDefaults;

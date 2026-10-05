@@ -33,6 +33,7 @@ mollama 适用于**所有**提供 OpenAI 兼容接口的提供商。热门模型
 | 📡 **支持远程部署** | 可部署至自有云端服务器，前端仅与云端通信，有效规避大部分网络监管 |
 | ⚡ **流式传输优先** | SSE 到 NDJSON 的高效转换，支持增量 `tool_calls` 缓冲 |
 | 🧠 **推理兼容** | 自动处理 `reasoning_content` 与 `thinking` 格式转换 |
+| 🎛️ **单模型多档位** | 按模型配置思考开关/强度，适配 ollama-vscode 0.0.12 的 `ollama.thinkingLevels` |
 | 🖼️ **多模态支持** | `images` 数组 → OpenAI `content` parts，支持 base64 data URLs |
 | 📋 **结构化输出** | `format: "json"` / `format: { schema }` → `response_format` 映射 |
 
@@ -78,6 +79,7 @@ mollama 使用两个 JSON 配置文件：
 | 🔬 [Ollama vs OpenAI API 差异](docs/api-difference.md) | 完整的 API 端点覆盖与协议差异 |
 | 🤖 [GitHub Copilot Chat 集成](docs/copilot-chat-integration.md) | Copilot Chat 如何发现和使用 Ollama 模型 |
 | 🧩 [ollama-vscode 插件集成](docs/ollama-vscode-integration.md) | Ollama 官方 VS Code 插件的 API 调用方式与适配方案 |
+| 🎛️ [单模型思考档位](docs/thinking-levels.md) | DeepSeek/Kimi/MiMo 官方参数核对、档位设置及旧模型迁移 |
 
 ## 项目结构
 

@@ -186,6 +186,14 @@ export interface NormalizedOllamaRequest {
   payload: JsonObject;
 }
 
+function copyThinkParameter(source: Record<string, unknown>, target: JsonObject): void {
+  if (source.think === undefined) return;
+  if (typeof source.think !== 'boolean' && (typeof source.think !== 'string' || source.think.trim().length === 0)) {
+    throw badRequest('think must be a boolean or a non-empty effort name', 'invalid_think');
+  }
+  target.think = source.think;
+}
+
 export function normalizeOllamaChatToOpenAI(requestBody: unknown): NormalizedOllamaRequest {
   const payload = ensureObject(requestBody, 'request body');
   const model = ensureModel(payload);
@@ -211,9 +219,7 @@ export function normalizeOllamaChatToOpenAI(requestBody: unknown): NormalizedOll
   if (typeof payload.tool_choice === 'string' || isRecord(payload.tool_choice)) {
     normalized.tool_choice = payload.tool_choice as JsonValue;
   }
-  if (typeof payload.think === 'boolean' || typeof payload.think === 'string') {
-    normalized.think = payload.think;
-  }
+  copyThinkParameter(payload, normalized);
   if (isRecord(payload.thinking)) {
     normalized.thinking = payload.thinking as JsonValue;
   }
@@ -256,9 +262,7 @@ export function normalizeOllamaGenerateToOpenAI(requestBody: unknown): Normalize
     normalized.response_format = responseFormat;
   }
 
-  if (typeof payload.think === 'boolean' || typeof payload.think === 'string') {
-    normalized.think = payload.think;
-  }
+  copyThinkParameter(payload, normalized);
   if (isRecord(payload.thinking)) {
     normalized.thinking = payload.thinking as JsonValue;
   }

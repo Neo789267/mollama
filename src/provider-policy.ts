@@ -5,6 +5,7 @@ import {
 } from './frontend-policy';
 import { badRequest } from './errors';
 import { isRecord, isJsonObject } from './guards';
+import { applyConfiguredThinking } from './thinking-policy';
 import type { FrontendProfile, JsonValue, ModelDefinition, ModelRequestDefaults } from './types';
 
 type JsonObject = Record<string, JsonValue>;
@@ -104,7 +105,7 @@ function applyThinkParameterAlias(model: ModelDefinition, payload: JsonObject): 
   delete payload.think;
 }
 
-function applyReasoningHistoryMode(model: ModelDefinition, payload: JsonObject): void {
+function applyReasoningHistoryMode(model: ModelDefinition, payload: JsonObject, thinkingEnabled: boolean | undefined): void {
   if (model.reasoningHistory.mode === 'none') {
     return;
   }
@@ -146,8 +147,7 @@ function applyReasoningHistoryMode(model: ModelDefinition, payload: JsonObject):
   }
 
   // 'inject-empty' and 'require-present' need thinking enabled guard
-  const thinking = payload.thinking;
-  if (!isRecord(thinking) || thinking.type !== 'enabled') {
+  if (!thinkingEnabled) {
     return;
   }
 
@@ -164,16 +164,12 @@ function applyReasoningHistoryMode(model: ModelDefinition, payload: JsonObject):
   );
 }
 
-function applyThinkingStatePayloadOverrides(model: ModelDefinition, payload: JsonObject): void {
+function applyThinkingStatePayloadOverrides(model: ModelDefinition, payload: JsonObject, thinkingEnabled: boolean | undefined): void {
   // For 'always' mode, treat thinking as permanently enabled without needing
   // the thinking parameter in the payload. This lets always-thinking models
   // (e.g. kimi-k2.7-code) use payloadOverridesByThinking.enabled to set
   // fixed parameters (like temperature) without sending thinking to the API.
-  const thinkingType = model.reasoningHistory.mode === 'always'
-    ? 'enabled'
-    : isRecord(payload.thinking)
-      ? payload.thinking.type
-      : undefined;
+  const thinkingType = thinkingEnabled === undefined ? undefined : thinkingEnabled ? 'enabled' : 'disabled';
 
   const overrides = thinkingType === 'enabled'
     ? model.payloadOverridesByThinking.enabled
@@ -189,6 +185,18 @@ function applyThinkingStatePayloadOverrides(model: ModelDefinition, payload: Jso
 }
 
 function clampMaxTokens(model: ModelDefinition, payload: JsonObject): void {
+  if (model.maxTokensField === 'max_completion_tokens') {
+    const limits = [payload.max_tokens, payload.max_completion_tokens].filter(value => value !== undefined && value !== null);
+    for (const limit of limits) {
+      if (typeof limit !== 'number' || !Number.isInteger(limit) || limit < 1) {
+        throw badRequest('Output token limits must be positive integers', 'invalid_max_tokens');
+      }
+    }
+    // Honor the stricter budget if both client spellings/defaults are present.
+    payload.max_completion_tokens = Math.min(model.maxOutputTokens, ...(limits as number[]));
+    delete payload.max_tokens;
+    return;
+  }
   const maxTokens = payload.max_tokens;
   if (typeof maxTokens !== 'number' || !Number.isFinite(maxTokens)) {
     return;
@@ -223,9 +231,18 @@ export function buildUpstreamPayload(
   }
 
   applyFrontendProfile(merged, frontendProfile);
-  applyThinkParameterAlias(model, merged);
-  applyReasoningHistoryMode(model, merged);
-  applyThinkingStatePayloadOverrides(model, merged);
+  let thinkingEnabled: boolean | undefined;
+  if (model.thinking) {
+    thinkingEnabled = applyConfiguredThinking(model, merged);
+  } else {
+    // Configurations without a declared policy keep the pre-0.0.12 behavior.
+    applyThinkParameterAlias(model, merged);
+    thinkingEnabled = model.reasoningHistory.mode === 'always' ? true
+      : isRecord(merged.thinking) && merged.thinking.type === 'enabled' ? true
+        : isRecord(merged.thinking) && merged.thinking.type === 'disabled' ? false : undefined;
+  }
+  applyReasoningHistoryMode(model, merged, thinkingEnabled);
+  applyThinkingStatePayloadOverrides(model, merged, thinkingEnabled);
   clampMaxTokens(model, merged);
 
   return merged;

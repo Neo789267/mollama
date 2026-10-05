@@ -26,146 +26,69 @@
       },
       "models": [
         {
-          "id": "deepseek-v4-flash-default",
-          "displayName": "DeepSeek V4 Flash",
-          "targetModel": "deepseek-v4-flash",
-          "family": "deepseek-v4-flash",
-          "contextWindow": 1000000,
-          "maxOutputTokens": 384000,
+          "id": "deepseek-flash",
+          "displayName": "DeepSeek V4.1 Flash",
+          "targetModel": "deepseek-flash",
+          "family": "deepseek-v4.1-flash",
+          "contextWindow": 1048576,
+          "maxOutputTokens": 393216,
           "supports": {
             "tools": true,
-            "vision": false,
+            "vision": true,
             "thinking": true
           },
-          "parameters": {
-            "thinking": {
-              "type": "disabled"
-            }
+          "thinking": {
+            "mode": "toggle",
+            "values": [false, "low", "high", "max"],
+            "default": "high",
+            "effortAliases": { "none": false, "minimal": "low", "medium": "high", "xhigh": "high", "ultra": "max" }
           },
+          "aliases": [
+            { "id": "deepseek-v4-flash-default", "thinking": false },
+            { "id": "DeepSeek V4 Flash", "thinking": false },
+            { "id": "deepseek-v4-flash-thinking-high", "thinking": "high" },
+            { "id": "DeepSeek V4 Flash High", "thinking": "high" },
+            { "id": "deepseek-v4-flash-thinking-max", "thinking": "max" },
+            { "id": "DeepSeek V4 Flash Max", "thinking": "max" }
+          ],
+          "parameters": {},
           "payloadOverrides": {},
           "payloadOverridesByThinking": {},
           "reasoningHistory": {
-            "mode": "none"
+            "mode": "inject-empty"
           }
         },
         {
-          "id": "deepseek-v4-flash-thinking-high",
-          "displayName": "DeepSeek V4 Flash High",
-          "targetModel": "deepseek-v4-flash",
-          "family": "deepseek-v4-flash",
-          "contextWindow": 1000000,
-          "maxOutputTokens": 384000,
-          "supports": {
-            "tools": true,
-            "vision": false,
-            "thinking": true
-          },
-          "parameters": {
-            "thinking": {
-              "type": "enabled"
-            },
-            "reasoning_effort": "high"
-          },
-          "reasoningHistory": {
-            "mode": "inject-empty"
-          },
-          "payloadOverrides": {},
-          "payloadOverridesByThinking": {}
-        },
-        {
-          "id": "deepseek-v4-flash-thinking-max",
-          "displayName": "DeepSeek V4 Flash Max",
-          "targetModel": "deepseek-v4-flash",
-          "family": "deepseek-v4-flash",
-          "contextWindow": 1000000,
-          "maxOutputTokens": 384000,
-          "supports": {
-            "tools": true,
-            "vision": false,
-            "thinking": true
-          },
-          "parameters": {
-            "thinking": {
-              "type": "enabled"
-            },
-            "reasoning_effort": "max"
-          },
-          "reasoningHistory": {
-            "mode": "inject-empty"
-          },
-          "payloadOverrides": {},
-          "payloadOverridesByThinking": {}
-        },
-        {
-          "id": "deepseek-v4-pro-default",
+          "id": "deepseek-v4-pro",
           "displayName": "DeepSeek V4 Pro",
           "targetModel": "deepseek-v4-pro",
           "family": "deepseek-v4-pro",
-          "contextWindow": 1000000,
-          "maxOutputTokens": 384000,
+          "contextWindow": 1048576,
+          "maxOutputTokens": 393216,
           "supports": {
             "tools": true,
             "vision": false,
             "thinking": true
           },
-          "parameters": {
-            "thinking": {
-              "type": "disabled"
-            }
+          "thinking": {
+            "mode": "toggle",
+            "values": [false, "low", "high", "max"],
+            "default": "high",
+            "effortAliases": { "none": false, "minimal": "low", "medium": "high", "xhigh": "high", "ultra": "max" }
           },
+          "aliases": [
+            { "id": "deepseek-v4-pro-default", "thinking": false },
+            { "id": "deepseek-v4-pro-thinking-high", "thinking": "high" },
+            { "id": "DeepSeek V4 Pro High", "thinking": "high" },
+            { "id": "deepseek-v4-pro-thinking-max", "thinking": "max" },
+            { "id": "DeepSeek V4 Pro Max", "thinking": "max" }
+          ],
+          "parameters": {},
           "payloadOverrides": {},
           "payloadOverridesByThinking": {},
           "reasoningHistory": {
-            "mode": "none"
+            "mode": "inject-empty"
           }
-        },
-        {
-          "id": "deepseek-v4-pro-thinking-high",
-          "displayName": "DeepSeek V4 Pro High",
-          "targetModel": "deepseek-v4-pro",
-          "family": "deepseek-v4-pro",
-          "contextWindow": 1000000,
-          "maxOutputTokens": 384000,
-          "supports": {
-            "tools": true,
-            "vision": false,
-            "thinking": true
-          },
-          "parameters": {
-            "thinking": {
-              "type": "enabled"
-            },
-            "reasoning_effort": "high"
-          },
-          "reasoningHistory": {
-            "mode": "inject-empty"
-          },
-          "payloadOverrides": {},
-          "payloadOverridesByThinking": {}
-        },
-        {
-          "id": "deepseek-v4-pro-thinking-max",
-          "displayName": "DeepSeek V4 Pro Max",
-          "targetModel": "deepseek-v4-pro",
-          "family": "deepseek-v4-pro",
-          "contextWindow": 1000000,
-          "maxOutputTokens": 384000,
-          "supports": {
-            "tools": true,
-            "vision": false,
-            "thinking": true
-          },
-          "parameters": {
-            "thinking": {
-              "type": "enabled"
-            },
-            "reasoning_effort": "max"
-          },
-          "reasoningHistory": {
-            "mode": "inject-empty"
-          },
-          "payloadOverrides": {},
-          "payloadOverridesByThinking": {}
         }
       ]
     },
@@ -194,27 +117,24 @@
           "id": "kimi-for-coding",
           "displayName": "Kimi For Coding",
           "targetModel": "kimi-for-coding",
-          "contextWindow": 262144,
+          "contextWindow": 1048576,
           "maxOutputTokens": 32768,
           "supports": {
             "tools": true,
             "vision": true,
             "thinking": true
           },
+          "thinking": {
+            "mode": "effort",
+            "values": [false, "low", "high", "max"],
+            "default": "max",
+            "effortAliases": { "none": false, "minimum": "low", "light": "low", "medium": "high", "xhigh": "max", "ultra": "max" }
+          },
           "parameters": {},
-          "payloadOverrides": {
-            "top_p": 0.95,
-            "n": 1,
-            "presence_penalty": 0,
-            "frequency_penalty": 0
-          },
-          "payloadOverridesByThinking": {
-            "enabled": {
-              "temperature": 1
-            }
-          },
+          "payloadOverrides": {},
+          "payloadOverridesByThinking": {},
           "reasoningHistory": {
-            "mode": "always"
+            "mode": "inject-empty"
           }
         }
       ]
@@ -252,6 +172,11 @@
             "thinking": true
           },
           "parameters": {},
+          "thinking": {
+            "mode": "fixed",
+            "values": [true],
+            "default": true
+          },
           "payloadOverrides": {
             "top_p": 0.95,
             "n": 1,
@@ -278,11 +203,12 @@
             "vision": true,
             "thinking": true
           },
-          "parameters": {
-            "thinking": {
-              "type": "enabled"
-            }
+          "thinking": {
+            "mode": "toggle",
+            "values": [false, true],
+            "default": true
           },
+          "parameters": {},
           "payloadOverrides": {
             "top_p": 0.95,
             "n": 1,
@@ -312,11 +238,12 @@
             "vision": true,
             "thinking": true
           },
-          "parameters": {
-            "thinking": {
-              "type": "enabled"
-            }
+          "thinking": {
+            "mode": "toggle",
+            "values": [false, true],
+            "default": true
           },
+          "parameters": {},
           "payloadOverrides": {
             "top_p": 0.95,
             "n": 1,
@@ -361,9 +288,15 @@
       },
       "models": [
         {
-          "id": "mimo-v2-5-pro-local",
-          "displayName": "MiMo V2.5 Pro",
-          "targetModel": "mimo-v2.5-pro",
+          "id": "mimo-v2-6-pro-local",
+          "displayName": "MiMo V2.6 Pro",
+          "targetModel": "mimo-v2.6-pro",
+          "family": "mimo-v2.6-pro",
+          "maxTokensField": "max_completion_tokens",
+          "aliases": [
+            { "id": "mimo-v2-5-pro-local" },
+            { "id": "MiMo V2.5 Pro" }
+          ],
           "contextWindow": 1048576,
           "maxOutputTokens": 131072,
           "supports": {
@@ -371,21 +304,30 @@
             "vision": true,
             "thinking": true
           },
-          "parameters": {
-            "thinking": {
-              "type": "enabled"
-            }
+          "thinking": {
+            "mode": "toggle",
+            "values": [false, true],
+            "default": true
           },
+          "parameters": { "temperature": 1, "top_p": 0.95 },
           "payloadOverrides": {},
-          "payloadOverridesByThinking": {},
+          "payloadOverridesByThinking": {
+            "enabled": { "temperature": 1, "top_p": 0.95 }
+          },
           "reasoningHistory": {
             "mode": "inject-empty"
           }
         },
         {
-          "id": "mimo-v2-5-local",
-          "displayName": "MiMo V2.5",
-          "targetModel": "mimo-v2.5",
+          "id": "mimo-v2-6-flash-local",
+          "displayName": "MiMo V2.6 Flash",
+          "targetModel": "mimo-v2.6-flash",
+          "family": "mimo-v2.6-flash",
+          "maxTokensField": "max_completion_tokens",
+          "aliases": [
+            { "id": "mimo-v2-5-local" },
+            { "id": "MiMo V2.5" }
+          ],
           "contextWindow": 1048576,
           "maxOutputTokens": 131072,
           "supports": {
@@ -393,13 +335,16 @@
             "vision": true,
             "thinking": true
           },
-          "parameters": {
-            "thinking": {
-              "type": "enabled"
-            }
+          "thinking": {
+            "mode": "toggle",
+            "values": [false, true],
+            "default": true
           },
+          "parameters": { "temperature": 1, "top_p": 0.95 },
           "payloadOverrides": {},
-          "payloadOverridesByThinking": {},
+          "payloadOverridesByThinking": {
+            "enabled": { "temperature": 1, "top_p": 0.95 }
+          },
           "reasoningHistory": {
             "mode": "inject-empty"
           }
