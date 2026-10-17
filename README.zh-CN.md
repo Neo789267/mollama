@@ -2,126 +2,129 @@
 
 [English](README.md)
 
-> **模型自由，从这里开始。** 一个轻量级 Ollama 协议兼容代理，将任意远程 OpenAI 兼容大模型 API 包装为本地 Ollama 服务——让所有支持 Ollama 的编程助手无缝接入你想要的模型。
+当前版本：`0.2.13`。末段版本号与已同步适配的 Ollama VS Code 插件保持一致（当前为 `0.0.13`），不代表 Ollama 服务端版本。
 
-## 什么是 mollama？
-
-mollama 是一个兼容代理，伪装为本地 Ollama 服务器。它将远程大模型提供商的 API（OpenAI 兼容协议）转换为原生 Ollama 协议，使所有支持 Ollama 本地模型的编程助手（Coding Agent）都能无缝访问远程大语言模型。
-
-项目最初是为了让 VS Code 中的 **GitHub Copilot Chat** 通过伪装的本地 Ollama 服务间接支持 **DeepSeek**、**Kimi** 等国产大模型而开发。如今 mollama 已发展为通用的**模型聚合网关**。实际上，大部分前端通过 Ollama 的 OpenAI 兼容接口调用模型，并未使用原生 Ollama 接口——mollama 只是为模型自由提供了一种更简洁的新方式。
-
-### 支持的模型与提供商
-
-mollama 适用于**所有**提供 OpenAI 兼容接口的提供商。热门模型包括：
-
-| 分类 | 模型 |
-|------|------|
-| 🇨🇳 国产大模型 | DeepSeek（V3/R1）、Kimi（月之暗面）、Qwen（通义千问）、GLM（智谱）、Baichuan（百川）、Yi（零一万物）、Doubao（豆包/字节）、StepFun（阶跃星辰）、MiniMax、SenseChat（商汤） |
-| 🌍 国际大模型 | GPT-4o / GPT-4.1 / o1 / o3、Claude 3.5 / Claude 4（Sonnet/Opus）、Gemini 2.5 Pro/Flash、Llama 4、Mistral Large、Command R+ |
-| 🔧 代码模型 | DeepSeek-Coder、CodeGeeX、Qwen-Coder、StarCoder、CodeLlama、Codestral |
-
-> 只要提供商提供 OpenAI 兼容端点，mollama 就能代理它。
-
-## 核心特性
-
-| 特性 | 说明 |
-|------|------|
-| 🔌 **完整 Ollama 协议** | `/api/chat`、`/api/generate`、`/api/embed`、`/api/embeddings`、`/api/tags`、`/api/show`、`/api/ps`、`/api/version` |
-| 🌐 **多模型配置** | 在 `models.json` 中配置多个提供商和模型，一键切换 |
-| 🔒 **内置 HTTP/HTTPS 代理** | 全局或按提供商独立代理配置，轻松绕过网络限制 |
-| 🎯 **前端提示词注入** | 通过 `user-agent` 自动匹配前端 Profile，注入个性化系统提示词和工具配置 |
-| 📡 **支持远程部署** | 可部署至自有云端服务器，前端仅与云端通信，有效规避大部分网络监管 |
-| ⚡ **流式传输优先** | SSE 到 NDJSON 的高效转换，支持增量 `tool_calls` 缓冲 |
-| 🧠 **推理兼容** | 自动处理 `reasoning_content` 与 `thinking` 格式转换 |
-| 🎛️ **单模型多档位** | 按模型配置思考开关/强度，适配 ollama-vscode 0.0.12/0.0.13 的 `ollama.thinkingLevels` 及新版档位诊断 |
-| 🖼️ **多模态支持** | `images` 数组 → OpenAI `content` parts，支持 base64 data URLs |
-| 📋 **结构化输出** | `format: "json"` / `format: { schema }` → `response_format` 映射 |
-
-## 适用场景
-
-| 场景 | 说明 |
-|------|------|
-| **Copilot + DeepSeek/Kimi** | 让 GitHub Copilot Chat 使用 DeepSeek、Kimi、通义千问等国产模型 |
-| **ollama-vscode 插件** | 通过原生 `/api/chat` 协议让 Ollama 官方 VS Code 插件使用远程模型 |
-| **模型聚合网关** | 统一管理多个提供商，一个本地端口访问所有模型 |
-| **网络绕路代理** | 部署到云端服务器，前端仅与云端通信，摆脱网络限制 |
-| **多前端统一接入** | 为 GitHub Copilot、OpenCode、Continue、Cline、Aider 等提供统一服务 |
+将远程 OpenAI 兼容模型接口转换为 Ollama 服务，供 Ollama VS Code 插件等客户端使用。支持多提供商、流式响应、工具、图片和按模型配置的思考档位，具体能力取决于上游模型。
 
 ## 快速开始
 
-```bash
-# 安装 & 构建
-npm install
+需要 Node.js 20+ 和 npm。以下命令在仓库根目录执行。
+
+```sh
+npm ci
 npm run build
-
-# 使用默认配置启动
-npm run start -- --config config/system.json
 ```
 
-然后将你的 Ollama 兼容客户端指向 `http://localhost:11434`，即可开始使用。
+启动前编辑配置：
 
-## 配置说明
+- `config/system.json`：监听地址、端口、前端规则和日志。
+- `config/models.json`：提供商地址、密钥引用、模型和代理。按需删去不用的提供商及关联模型。
 
-mollama 使用两个 JSON 配置文件：
+示例配置通过 `env:` 引用环境变量。在 PowerShell 中设置保留的提供商所需的密钥：
 
-| 文件 | 用途 |
-|------|------|
-| `config/system.json` | 服务器设置、Ollama 兼容性、前端 Profile、日志 |
-| `config/models.json` | 全局代理、提供商上游配置、模型目录 |
-
-👉 **完整配置参考**：[docs/configuration-reference.md](docs/configuration-reference.md)
-
-## 文档
-
-| 文档 | 说明 |
-|------|------|
-| 📖 [配置参考](docs/configuration-reference.md) | `system.json` 和 `models.json` 的完整 Schema |
-| 🔬 [Ollama vs OpenAI API 差异](docs/api-difference.md) | 完整的 API 端点覆盖与协议差异 |
-| 🤖 [GitHub Copilot Chat 集成](docs/copilot-chat-integration.md) | Copilot Chat 如何发现和使用 Ollama 模型 |
-| 🧩 [ollama-vscode 插件集成](docs/ollama-vscode-integration.md) | Ollama 官方 VS Code 插件的 API 调用方式与适配方案 |
-| 🎛️ [单模型思考档位](docs/thinking-levels.md) | DeepSeek/Kimi/MiMo 官方参数核对、档位设置及旧模型迁移 |
-
-## 项目结构
-
-```
-mollama/
-├── config/
-│   ├── system.json          # 服务器、Ollama、日志、前端 Profile
-│   └── models.json          # 提供商上游 + 模型注册表
-├── src/
-│   ├── cli.ts               # CLI 入口（start / init / validate）
-│   ├── server.ts            # HTTP 路由编排
-│   ├── protocol/
-│   │   ├── ollama-to-openai.ts    # 请求：Ollama → OpenAI
-│   │   ├── openai-to-ollama.ts    # 响应：OpenAI → Ollama
-│   │   └── reasoning-compat.ts    # reasoning_content → thinking
-│   └── upstream/
-│       ├── client.ts        # 模型解析 + 上游分发
-│       └── transport.ts     # 重试、超时、代理、流式传输
-├── test/
-│   └── integration.test.js  # 集成测试
-└── docs/
-    ├── configuration-reference.md
-    ├── api-difference.md
-    ├── copilot-chat-integration.md
-    └── ollama-vscode-integration.md
+```powershell
+$env:DEEPSEEK_API_KEY = "你的密钥"
+$env:KIMI_FOR_CODING_API_KEY = "你的密钥"
+$env:KIMI_API_KEY = "你的密钥"
+$env:MIMO_API_KEY = "你的密钥"
+# 可选：示例配置通过此变量设置出站代理
+$env:HTTPS_PROXY = "http://127.0.0.1:7890"
 ```
 
-## 开发
+Linux/macOS 使用 `export 变量名="值"`。服务不会自动加载 `.env` 文件；不要将真实密钥提交到仓库。
 
-```bash
-npm run build          # 编译 TypeScript
-npm test               # 运行集成测试
-npm run sync:test-env  # 构建并部署到测试环境（默认 C:\tmp\mollama，可用 MOLLAMA_TEST_ROOT 覆盖）
-npm run start:test-env # 启动部署好的测试环境
+```sh
+npm run validate-config
+npm start
 ```
 
-测试环境让真实 API key 不进入仓库：开发目录的配置只保留 `env:` 占位符，key 存放在 `<测试根目录>/api-key/keys.txt`（首次同步会自动生成模板，该文件在重复同步时保留）。key 条目既支持 `models.json` 里 `env:` 引用的变量名（如 `DEEPSEEK_API_KEY=sk-...`），也支持 provider 别名。
+将客户端的 Ollama 地址设为 `http://127.0.0.1:11434`。配置验证和查询 `/api/tags` 不发起推理，实际聊天会调用上游 API。
+
+## start：启动服务
+
+```sh
+npm start
+npm start -- --config config/system.json
+node dist/cli.js start --config /absolute/path/system.json
+```
+
+| 参数 / 行为 | 说明 |
+| --- | --- |
+| `--config <path>` | 系统配置路径，默认 `config/system.json`；相对路径以工作目录为基准，含空格时加引号 |
+| `modelsConfigPath` | 系统配置中的模型配置路径，相对路径以系统配置文件所在目录为基准 |
+| 地址 / 端口 | 修改 `server.host` / `server.port`；没有 `--host`、`--port` 参数 |
+| 构建 | `npm start` 直接运行 `dist/cli.js`，不会自动编译；修改源码后先运行 `npm run build` |
+| 停止 | 前台运行时按 `Ctrl+C`，优雅关闭最长等待 30 秒 |
+
+npm 的 `--` 用于将参数传给启动程序。示例仅监听本机，向外网开放前应配置访问控制和 TLS。
+
+其他 CLI 命令：
+
+```sh
+node dist/cli.js --help
+npm run validate-config -- --config config/system.json
+node dist/cli.js init ./my-instance
+node dist/cli.js start --config ./my-instance/config/system.json
+```
+
+`init` 创建最小配置，仍需填写提供商信息；`validate-config` 只检查配置，不启动服务，也不验证上游密钥是否有效。
+
+## test：自动化测试
+
+```sh
+npm test
+```
+
+先编译，再运行 Node.js 测试。测试使用本地模拟服务，不需要真实密钥，不消耗模型 token，但需要允许监听和连接本机端口。
+
+指定文件或筛选用例时，直接使用 Node 测试参数，放在文件路径之前：
+
+```sh
+npm run build
+# 单个文件
+node --test test/upstream-transport.test.js
+# 按测试名称筛选，支持正则表达式
+node --test --test-name-pattern="DeepSeek" test/thinking-policy.test.js
+# 指定输出格式
+node --test --test-reporter=spec test/integration.test.js
+# 显式列出全部文件，避免旧 Node / shell 的通配符兼容问题
+node --test test/integration.test.js test/models-config.test.js test/thinking-policy.test.js test/upstream-transport.test.js
+```
+
+| 文件 | 覆盖内容 |
+| --- | --- |
+| `integration.test.js` | 协议转换、流式响应、工具和断连 |
+| `models-config.test.js` | 仓库模型配置约束 |
+| `thinking-policy.test.js` | 思考档位、默认值、旧别名和输出预算 |
+| `upstream-transport.test.js` | 直连 / 代理、响应及空闲超时、重试 |
+
+## 真实模型测试环境
+
+这与 `npm test` 不同：复制并启动独立服务，客户端发起聊天时会使用真实密钥并消耗额度。
+
+```powershell
+# 可选；两个脚本默认使用 C:\tmp\mollama
+$env:MOLLAMA_TEST_ROOT = "D:\mollama-test"
+npm run sync:test-env
+# 编辑 D:\mollama-test\api-key\keys.txt，填写生成的密钥条目
+npm run sync:test-env
+npm run start:test-env
+```
+
+- `sync:test-env`：编译、复制代码和配置，缺少目标依赖目录时安装运行依赖，再注入密钥并验证。首次生成空密钥模板后验证可能失败，填写后重跑即可。
+- **每次同步都会删除并重建目标 `dist` 和 `config`，不保留目标配置修改。** `api-key/keys.txt` 会保留，密钥会写入目标 `config/models.json`，请保护这两个文件。不要将测试根目录设为仓库或生产目录。
+- 密钥推荐使用 `DEEPSEEK_API_KEY=...` 等与 `env:` 引用一致的名称。
+- `start:test-env` 启动已复制的代码，使用目标 `config/system.json`；不构建、不同步、不透传命令行参数。两个脚本均通过 `MOLLAMA_TEST_ROOT` 选择目录。
+- 默认端口仍为 `11434`。冲突时修改目标系统配置后启动，再次同步会覆盖该修改。更新运行中的测试服务需手动停止并重启。
+
+## 详细文档
+
+- [配置参考](docs/configuration-reference.md)
+- [API 差异](docs/api-difference.md)
+- [Ollama VS Code 插件接入](docs/ollama-vscode-integration.md)
+- [思考档位与迁移](docs/thinking-levels.md)
+- [Copilot Chat 接入](docs/copilot-chat-integration.md)
 
 ## 许可证
 
 MIT
-
----
-
-🚀 **模型自由，由 mollama 驱动。** 配置你的模型，启动服务，享受无限可能。
