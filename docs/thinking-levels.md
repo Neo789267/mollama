@@ -1,6 +1,6 @@
 # 单模型、多思考档位
 
-核对日期：2026-10-05。客户端基线：ollama-vscode 0.0.12，官方 main `527f6dc`。
+模型 API 核对日期：2026-10-05。客户端兼容性于 2026-10-17 复核至 ollama-vscode 0.0.13，官方 main `d5dd402`；原同步基线为 0.0.12 / `527f6dc`。
 
 每个实际模型只在目录中出现一次，通过 `ollama.thinkingLevels` 选择思考开关或强度。未设置时采用用户确认的默认：DeepSeek `high`、Kimi For Coding `max`。
 
@@ -36,7 +36,7 @@
 
 ## VS Code 使用
 
-升级插件至 0.0.12，在 Settings JSON 中按 `/api/tags` 的 **model ID** 设置：
+插件 0.0.12 / 0.0.13 均可在 Settings JSON 中按 `/api/tags` 的 **model ID** 设置：
 
 ```json
 {
@@ -53,7 +53,7 @@
 
 下一次请求生效；删除条目恢复服务端默认。布尔值不能写成字符串。设置键不是展示名称。[插件最终实现](https://github.com/ollama/ollama-vscode/pull/41)校验 capability 和 `/api/show.thinking`；未设置/不受支持时省略 think。直接向 mollama 发送不支持的值则返回 400。
 
-**0.0.12 没有档位下拉框，也不显示或回传原生 thinking 内容。** 单模型方案使用 Settings JSON。更新服务目录后执行 `Ollama: Refresh Models`，选择规范模型 ID。Kimi 官方建议切换强度时开启新会话，避免反复失效的上下文缓存。
+**截至本次核对的官方 0.0.13 / d5dd402，聊天框档位下拉框及原生 thinking 显示/历史回传仍未接入。** 单模型方案使用 Settings JSON；其他发行版或客户端界面需要单独核对。更新服务目录后执行 `Ollama: Refresh Models`，选择规范模型 ID。0.0.13 可执行 `Ollama: Diagnose Models` 查看 supported values、server-advertised default 和 effective setting for next request。Kimi 官方建议切换强度时开启新会话，避免反复失效的上下文缓存。
 
 ## 配置格式
 
@@ -101,7 +101,7 @@ thinking 是可选的新字段；旧配置不声明时仍沿用旧转换规则�
 
 思考状态在参数映射后统一计算。inject-empty 和条件覆盖也适用于只发送 reasoning_effort 的 Kimi Code；关闭时不补空思考。K2.7 Code 的 always 规则继续生效。已有 reasoning_content 原样保留，历史 thinking 转为 reasoning_content，工具 ID/结果关联保持不变。
 
-官方要求在相应多轮/工具调用中回传原始思考。插件 0.0.12 不回传该内容，因此 **补 reasoning_content: "" 只是原有兼容降级，不等于恢复原始思考，也不能保证所有上游版本接受**。本次没有引入跨请求思考缓存。严格场景可用 require-present 并选择会回传思考的客户端；缺少历史时收到明确错误。
+官方要求在相应多轮/工具调用中回传原始思考。插件 0.0.12 / 0.0.13 不回传该内容，因此 **补 reasoning_content: "" 只是原有兼容降级，不等于恢复原始思考，也不能保证所有上游版本接受**。本次没有引入跨请求思考缓存。严格场景可用 require-present 并选择会回传思考的客户端；缺少历史时收到明确错误。
 
 ## 现有部署迁移
 
