@@ -1,5 +1,5 @@
 import { PassThrough, Readable } from 'node:stream';
-import { ProxyAgent, fetch } from 'undici';
+import { Agent, ProxyAgent, fetch } from 'undici';
 import { badGateway, gatewayTimeout } from '../errors';
 import type { JsonValue, UpstreamConfig } from '../types';
 
@@ -81,15 +81,34 @@ function createResponseTimeoutHandle(timeoutMs: number): RequestTimeoutHandle {
   };
 }
 
-function createProxyAgent(upstream: UpstreamConfig): ProxyAgent | undefined {
-  return upstream.proxyUrl ? new ProxyAgent(upstream.proxyUrl) : undefined;
+type RequestDispatcher = Agent | ProxyAgent;
+
+function createRequestDispatcher(upstream: UpstreamConfig, expectsStream: boolean): RequestDispatcher | undefined {
+  // The explicit response/idle timers own streaming timeouts. Undici otherwise
+  // imposes a hidden five-minute header/body timeout, even when configured longer.
+  const options = expectsStream ? { headersTimeout: 0, bodyTimeout: 0 } : {};
+  if (upstream.proxyUrl) {
+    return new ProxyAgent({ uri: upstream.proxyUrl, ...options });
+  }
+  return expectsStream ? new Agent(options) : undefined;
 }
 
-async function closeProxyAgent(proxyAgent: ProxyAgent | undefined): Promise<void> {
-  if (!proxyAgent) {
+async function closeDispatcher(dispatcher: RequestDispatcher | undefined): Promise<void> {
+  if (!dispatcher) {
     return;
   }
-  await proxyAgent.close();
+  await dispatcher.close();
+}
+
+function upstreamRequestError(error: unknown, timeout: RequestTimeoutHandle | undefined, timeoutMs: number): Error {
+  if ((timeout?.didTimeout() ?? false) || (error instanceof Error && error.name === 'TimeoutError')) {
+    return gatewayTimeout(`Upstream request timed out after ${timeoutMs}ms`, 'upstream_timeout');
+  }
+  let message = error instanceof Error ? error.message : String(error);
+  if (error instanceof Error && error.cause instanceof Error) {
+    message += `: ${error.cause.message}`;
+  }
+  return badGateway(message, 'upstream_request_failed');
 }
 
 function attachStreamIdleTimeout(body: Readable, timeoutMs: number): Readable {
@@ -134,8 +153,8 @@ function attachStreamIdleTimeout(body: Readable, timeoutMs: number): Readable {
   return output;
 }
 
-function attachProxyCleanup(body: Readable, proxyAgent: ProxyAgent | undefined): Readable {
-  if (!proxyAgent) {
+function attachDispatcherCleanup(body: Readable, dispatcher: RequestDispatcher | undefined): Readable {
+  if (!dispatcher) {
     return body;
   }
 
@@ -146,7 +165,7 @@ function attachProxyCleanup(body: Readable, proxyAgent: ProxyAgent | undefined):
     }
 
     closed = true;
-    void closeProxyAgent(proxyAgent).catch(() => undefined);
+    void closeDispatcher(dispatcher).catch(() => undefined);
   };
 
   body.once('end', cleanup);
@@ -163,8 +182,8 @@ export async function sendJsonRequestToUpstream(
   const expectsStream = payload.stream === true;
   const requestUrl = `${upstream.baseUrl}${path}`;
   const requestBody = JSON.stringify(payload);
-  const proxyAgent = createProxyAgent(upstream);
-  let deferProxyAgentCleanup = false;
+  const dispatcher = createRequestDispatcher(upstream, expectsStream);
+  let deferDispatcherCleanup = false;
 
   try {
     for (let attempt = 0; attempt <= upstream.retry.attempts; attempt += 1) {
@@ -176,7 +195,7 @@ export async function sendJsonRequestToUpstream(
           method: 'POST',
           headers: buildRequestHeaders(upstream),
           body: requestBody,
-          dispatcher: proxyAgent,
+          dispatcher,
           signal: streamResponseTimeout?.signal ?? AbortSignal.timeout(upstream.timeoutMs),
         });
       } catch (error) {
@@ -186,17 +205,12 @@ export async function sendJsonRequestToUpstream(
           continue;
         }
 
-        if ((streamResponseTimeout?.didTimeout() ?? false) || (error instanceof Error && error.name === 'TimeoutError')) {
-          throw gatewayTimeout(`Upstream request timed out after ${upstream.timeoutMs}ms`, 'upstream_timeout');
-        }
-
-        throw badGateway(error instanceof Error ? error.message : String(error), 'upstream_request_failed');
+        throw upstreamRequestError(error, streamResponseTimeout, upstream.timeoutMs);
       }
-
-      streamResponseTimeout?.cancel();
 
       if (attempt < upstream.retry.attempts && shouldRetryStatus(upstream, response.status)) {
         await response.arrayBuffer().catch(() => undefined);
+        streamResponseTimeout?.cancel();
         await sleep(upstream.retry.backoffMs);
         continue;
       }
@@ -206,30 +220,39 @@ export async function sendJsonRequestToUpstream(
       const isEventStream = contentType.startsWith('text/event-stream');
 
       if (isEventStream && response.body) {
-        deferProxyAgentCleanup = true;
+        streamResponseTimeout?.cancel();
+        deferDispatcherCleanup = true;
         return {
           kind: 'stream',
           statusCode: response.status,
           headers: responseHeaders,
-          body: attachProxyCleanup(
+          body: attachDispatcherCleanup(
             attachStreamIdleTimeout(Readable.fromWeb(response.body as globalThis.ReadableStream), upstream.streamIdleTimeoutMs),
-            proxyAgent,
+            dispatcher,
           ),
         };
       }
 
-      return {
-        kind: 'text',
-        statusCode: response.status,
-        headers: responseHeaders,
-        body: await response.text(),
-      };
+      // A stream request may receive JSON (including an error) instead of SSE.
+      // Keep its response deadline active until that body has finished reading.
+      try {
+        return {
+          kind: 'text',
+          statusCode: response.status,
+          headers: responseHeaders,
+          body: await response.text(),
+        };
+      } catch (error) {
+        throw upstreamRequestError(error, streamResponseTimeout, upstream.timeoutMs);
+      } finally {
+        streamResponseTimeout?.cancel();
+      }
     }
 
     throw badGateway('Retry policy exhausted without a response', 'upstream_retry_exhausted');
   } finally {
-    if (!deferProxyAgentCleanup) {
-      await closeProxyAgent(proxyAgent);
+    if (!deferDispatcherCleanup) {
+      await closeDispatcher(dispatcher);
     }
   }
 }

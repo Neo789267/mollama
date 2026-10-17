@@ -33,7 +33,7 @@ mollama 适用于**所有**提供 OpenAI 兼容接口的提供商。热门模型
 | 📡 **支持远程部署** | 可部署至自有云端服务器，前端仅与云端通信，有效规避大部分网络监管 |
 | ⚡ **流式传输优先** | SSE 到 NDJSON 的高效转换，支持增量 `tool_calls` 缓冲 |
 | 🧠 **推理兼容** | 自动处理 `reasoning_content` 与 `thinking` 格式转换 |
-| 🎛️ **单模型多档位** | 按模型配置思考开关/强度，适配 ollama-vscode 0.0.12 的 `ollama.thinkingLevels` |
+| 🎛️ **单模型多档位** | 按模型配置思考开关/强度，适配 ollama-vscode 0.0.12/0.0.13 的 `ollama.thinkingLevels` 及新版档位诊断 |
 | 🖼️ **多模态支持** | `images` 数组 → OpenAI `content` parts，支持 base64 data URLs |
 | 📋 **结构化输出** | `format: "json"` / `format: { schema }` → `response_format` 映射 |
 

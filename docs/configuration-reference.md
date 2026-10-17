@@ -329,7 +329,8 @@ This setting tells mollama which field to read from upstream responses. Combined
 | `baseUrl` | `string` | ✅ | Upstream API base URL (no trailing slash). |
 | `apiKey` | `string` | ❌ | API key. Supports `env:VAR_NAME` syntax to read from environment variables. |
 | `proxyUrl` | `string` | ❌ | HTTP/HTTPS proxy URL for this provider. Supports `env:VAR_NAME` syntax. Overrides the global `proxyUrl`. |
-| `timeoutMs` | `number` | ✅ | Request timeout in milliseconds. |
+| `timeoutMs` | `number` | ✅ | Response-header deadline for streaming requests; full response deadline for non-streaming or JSON fallback responses, in milliseconds. |
+| `streamIdleTimeoutMs` | `number` | ❌ | Maximum silence between upstream stream chunks; defaults to timeoutMs. Set 0 to disable. Streaming transport disables Undici's hidden five-minute headers/body timeouts so these explicit deadlines control behavior on direct and proxy connections. |
 | `retry` | `object` | ❌ | Retry configuration (see below). |
 | `headers` | `object` | ❌ | Extra headers sent with every request to this provider. |
 
@@ -672,7 +673,7 @@ When `reasoningHistory` is configured on a model, `mollama` keeps the configured
 - `always`: unconditionally add `reasoning_content: ""` to historical assistant messages that are missing the field, regardless of the `thinking` parameter. Intended for models like `kimi-k2.7-code` where Preserved Thinking is always on and the `thinking` parameter must not be sent to the upstream API.
 - `require-present`: reject missing historical reasoning with a 400 `missing_reasoning_content` error when thinking is enabled.
 
-Existing reasoning text is preserved. Empty-field injection is a compatibility fallback, not reconstruction of original reasoning. ollama-vscode 0.0.12 does not replay thinking history; full preservation requires a client that does, or strict require-present handling. See [thinking-levels.md](thinking-levels.md).
+Existing reasoning text is preserved. Empty-field injection is a compatibility fallback, not reconstruction of original reasoning. ollama-vscode 0.0.12 / 0.0.13 does not replay thinking history; full preservation requires a client that does, or strict require-present handling. See [thinking-levels.md](thinking-levels.md).
 
 ### payloadOverridesByThinking
 
