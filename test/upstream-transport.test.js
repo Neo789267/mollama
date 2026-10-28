@@ -76,6 +76,53 @@ function upstream(baseUrl, overrides = {}) {
     retry: { attempts: 0, backoffMs: 0, retryOnStatusCodes: [503] }, ...overrides };
 }
 
+test('already cancelled requests never reach upstream', async t => {
+  let requests = 0;
+  const { url } = await serve(t, (req, res) => { requests++; res.end('{}'); });
+  await assert.rejects(sendJsonRequestToUpstream(upstream(url), '/chat/completions', { stream: true }, AbortSignal.abort()), { name: 'AbortError' });
+  assert.equal(requests, 0);
+});
+
+test('cancellation interrupts retry backoff without another attempt', { timeout: 5000 }, async t => {
+  let requests = 0;
+  let notifyResponded;
+  const responded = new Promise(resolve => { notifyResponded = resolve; });
+  const { url } = await serve(t, (req, res) => {
+    requests++;
+    res.writeHead(503, { 'Content-Type': 'application/json' });
+    res.end('{}', notifyResponded);
+  });
+  const controller = new AbortController();
+  const pending = sendJsonRequestToUpstream(upstream(url, {
+    retry: { attempts: 2, backoffMs: 10000, retryOnStatusCodes: [503] },
+  }), '/chat/completions', { stream: true }, controller.signal);
+  const rejected = assert.rejects(pending, { name: 'AbortError' });
+  await responded;
+  await new Promise(resolve => setTimeout(resolve, 50));
+  controller.abort();
+  await rejected;
+  assert.equal(requests, 1);
+});
+
+test('cancellation closes an incomplete JSON response', { timeout: 5000 }, async t => {
+  let notifyClosed;
+  let notifyStarted;
+  const closed = new Promise(resolve => { notifyClosed = resolve; });
+  const started = new Promise(resolve => { notifyStarted = resolve; });
+  const { url } = await serve(t, (req, res) => {
+    res.once('close', notifyClosed);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.write('{', notifyStarted);
+  });
+  const controller = new AbortController();
+  const pending = sendJsonRequestToUpstream(upstream(url), '/chat/completions', { stream: true }, controller.signal);
+  const rejected = assert.rejects(pending, { name: 'AbortError' });
+  await started;
+  controller.abort();
+  await rejected;
+  await closed;
+});
+
 async function text(body) {
   let result = '';
   for await (const chunk of body) result += chunk;
@@ -83,6 +130,26 @@ async function text(body) {
 }
 
 for (const useProxy of [false, true]) {
+  test(`cancellation before headers closes ${useProxy ? 'proxy' : 'direct'} connection`, { timeout: 5000 }, async t => {
+    let notifyStarted;
+    let notifyClosed;
+    const started = new Promise(resolve => { notifyStarted = resolve; });
+    const closed = new Promise(resolve => { notifyClosed = resolve; });
+    const { url } = await serve(t, (req, res) => {
+      req.resume();
+      res.once('close', notifyClosed);
+      notifyStarted();
+    });
+    const proxyUrl = useProxy ? await proxy(t) : undefined;
+    const controller = new AbortController();
+    const pending = sendJsonRequestToUpstream(upstream(url, { proxyUrl }), '/chat/completions', { stream: true }, controller.signal);
+    const rejected = assert.rejects(pending, { name: 'AbortError' });
+    await started;
+    controller.abort();
+    await rejected;
+    await closed;
+  });
+
   test(`stream survives inherited body timeout over ${useProxy ? 'HTTP CONNECT proxy' : 'direct connection'}`, { timeout: 10000 }, async t => {
     const { url } = await serve(t, (req, res) => {
       req.resume();

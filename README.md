@@ -2,7 +2,7 @@
 
 [中文文档](README.zh-CN.md)
 
-Current version: `0.2.13`. The final version component tracks the Ollama VS Code extension release covered by this project's compatibility updates (currently `0.0.13`), not the Ollama server version.
+Current version: `0.2.14`. The final version component tracks the Ollama VS Code extension release covered by this project's compatibility updates (currently `0.0.14`), not the Ollama server version.
 
 Expose remote OpenAI-compatible model APIs as an Ollama service for clients such as the Ollama VS Code extension. Supports multiple providers, streaming, tools, images, and per-model thinking controls. Capabilities depend on the upstream model.
 

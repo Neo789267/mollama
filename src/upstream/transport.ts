@@ -1,4 +1,5 @@
 import { PassThrough, Readable } from 'node:stream';
+import { setTimeout as delay } from 'node:timers/promises';
 import { Agent, ProxyAgent, fetch } from 'undici';
 import { badGateway, gatewayTimeout } from '../errors';
 import type { JsonValue, UpstreamConfig } from '../types';
@@ -56,8 +57,8 @@ function shouldRetryStatus(upstream: UpstreamConfig, statusCode: number): boolea
   return upstream.retry.retryOnStatusCodes.includes(statusCode);
 }
 
-function sleep(delayMs: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, delayMs));
+async function sleep(delayMs: number, signal?: AbortSignal): Promise<void> {
+  await delay(delayMs, undefined, { signal });
 }
 
 interface RequestTimeoutHandle {
@@ -178,7 +179,9 @@ export async function sendJsonRequestToUpstream(
   upstream: UpstreamConfig,
   path: string,
   payload: JsonObject,
+  signal?: AbortSignal,
 ): Promise<UpstreamResult> {
+  signal?.throwIfAborted();
   const expectsStream = payload.stream === true;
   const requestUrl = `${upstream.baseUrl}${path}`;
   const requestBody = JSON.stringify(payload);
@@ -187,8 +190,10 @@ export async function sendJsonRequestToUpstream(
 
   try {
     for (let attempt = 0; attempt <= upstream.retry.attempts; attempt += 1) {
+      signal?.throwIfAborted();
       let response: Response;
       const streamResponseTimeout = expectsStream ? createResponseTimeoutHandle(upstream.timeoutMs) : undefined;
+      const timeoutSignal = streamResponseTimeout?.signal ?? AbortSignal.timeout(upstream.timeoutMs);
 
       try {
         response = await fetch(requestUrl, {
@@ -196,12 +201,13 @@ export async function sendJsonRequestToUpstream(
           headers: buildRequestHeaders(upstream),
           body: requestBody,
           dispatcher,
-          signal: streamResponseTimeout?.signal ?? AbortSignal.timeout(upstream.timeoutMs),
+          signal: signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal,
         });
       } catch (error) {
         streamResponseTimeout?.cancel();
+        signal?.throwIfAborted();
         if (attempt < upstream.retry.attempts) {
-          await sleep(upstream.retry.backoffMs);
+          await sleep(upstream.retry.backoffMs, signal);
           continue;
         }
 
@@ -211,7 +217,8 @@ export async function sendJsonRequestToUpstream(
       if (attempt < upstream.retry.attempts && shouldRetryStatus(upstream, response.status)) {
         await response.arrayBuffer().catch(() => undefined);
         streamResponseTimeout?.cancel();
-        await sleep(upstream.retry.backoffMs);
+        signal?.throwIfAborted();
+        await sleep(upstream.retry.backoffMs, signal);
         continue;
       }
 
@@ -243,6 +250,7 @@ export async function sendJsonRequestToUpstream(
           body: await response.text(),
         };
       } catch (error) {
+        signal?.throwIfAborted();
         throw upstreamRequestError(error, streamResponseTimeout, upstream.timeoutMs);
       } finally {
         streamResponseTimeout?.cancel();
