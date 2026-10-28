@@ -28,13 +28,14 @@ export async function forwardOpenAIChatCompletions(
   modelRegistry: ModelRegistry,
   requestPayload: unknown,
   frontendProfile?: FrontendProfile,
+  signal?: AbortSignal,
 ): Promise<ForwardedRequest> {
   assertBadRequest(isJsonObject(requestPayload), 'Request body must be a JSON object');
 
   const model = pickRequestModel(modelRegistry, requestPayload);
   const upstreamPayload = buildUpstreamPayload(config.models.defaults, model, requestPayload, frontendProfile);
   const upstream = getModelUpstream(config, model);
-  const result = await sendJsonRequestToUpstream(upstream, '/chat/completions', upstreamPayload);
+  const result = await sendJsonRequestToUpstream(upstream, '/chat/completions', upstreamPayload, signal);
   return { model, result };
 }
 
@@ -42,6 +43,7 @@ export async function forwardOpenAIEmbeddings(
   config: AppConfig,
   modelRegistry: ModelRegistry,
   requestPayload: unknown,
+  signal?: AbortSignal,
 ): Promise<ForwardedRequest> {
   assertBadRequest(isJsonObject(requestPayload), 'Request body must be a JSON object');
 
@@ -53,6 +55,6 @@ export async function forwardOpenAIEmbeddings(
     model: model.targetModel,
   };
 
-  const result = await sendJsonRequestToUpstream(upstream, '/embeddings', payload);
+  const result = await sendJsonRequestToUpstream(upstream, '/embeddings', payload, signal);
   return { model, result };
 }

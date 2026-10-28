@@ -1,6 +1,6 @@
 # ollama-vscode 与 mollama 集成
 
-核对日期：2026-10-17。官方插件版本：0.0.13；main：`d5dd402`。上次同步基线：0.0.12 / `527f6dc`。
+核对日期：2026-10-28。官方插件版本：0.0.14；main：`8265bb2`。上次同步基线：0.0.13 / `d5dd402`。mollama 对应版本：0.2.14。
 
 ## 调用路径
 
@@ -19,7 +19,7 @@
 
 ## 单模型、多 thinking level
 
-PR [#41](https://github.com/ollama/ollama-vscode/pull/41)已合并，0.0.12 和本次核对的 0.0.13 均使用稳定 Settings API：
+PR [#41](https://github.com/ollama/ollama-vscode/pull/41)已合并，0.0.12 至本次核对的 0.0.14 均使用稳定 Settings API：
 
 ```json
 {
@@ -44,7 +44,7 @@ PR [#41](https://github.com/ollama/ollama-vscode/pull/41)已合并，0.0.12 和�
 
 至少有两个不同值、且 default 属于 values 时才接受控制设置。元数据缺失时回退少数已知模型规则（旧规则不含 DeepSeek low）；非法元数据不会回退。未设置或不受支持时省略 think，保留服务默认。
 
-**在本次拉取的官方 0.0.13 / d5dd402 中，聊天框原生思考显示、历史回传和档位下拉框仍未实现。** 设置页的 Thinking Levels 与聊天框下拉框是不同入口；如果安装版本或发行渠道提供其他界面，应按它实际发送的请求验证，不能仅根据界面推断参数。官方参数核对、模型配置与迁移步骤见 [单模型思考档位方案](thinking-levels.md)。
+**在本次拉取的官方 0.0.14 / 8265bb2 中，聊天框原生思考显示、历史回传和档位下拉框仍未实现。** 设置页的 Thinking Levels 与聊天框下拉框是不同入口；如果安装版本或发行渠道提供其他界面，应按它实际发送的请求验证，不能仅根据界面推断参数。官方参数核对、模型配置与迁移步骤见 [单模型思考档位方案](thinking-levels.md)。
 
 0.0.13 的 `Ollama: Diagnose Models` 会展示各模型支持的值、服务端默认值、已配置的覆盖值和下次请求生效值。mollama 的 `/api/show.thinking` 已满足此功能，无需新增字段。K2.7 Code 的 `[true]` 是固定模式，诊断会显示没有可配置档位，这是预期行为。
 
@@ -58,7 +58,25 @@ PR [#41](https://github.com/ollama/ollama-vscode/pull/41)已合并，0.0.12 和�
 - 上游错误使用 Ollama JSON 错误；流中断尽可能发送 error 块，客户端断开时销毁上游流。
 - 插件不回传思考历史，inject-empty 是兼容降级，不是完整原始思考恢复；详见方案中的历史消息边界。
 
-## 0.0.12 → 0.0.13 核对与同步
+## 0.0.13 → 0.0.14 核对与同步
+
+官方 [发布说明](https://github.com/ollama/ollama-vscode/releases/tag/v0.0.14) 与 [完整差异](https://github.com/ollama/ollama-vscode/compare/v0.0.13...v0.0.14)。本次未新增服务端端点或思考档位协议。
+
+| 官方更新 | 对 mollama 的影响与处理 |
+|---|---|
+| [#93 历史消息与本地上下文恢复](https://github.com/ollama/ollama-vscode/pull/93) | 客户端兼容序列化的 VS Code 文本、图片及工具结果；仅 local 模型发送 `truncate:false`。mollama 保持 remote 标记，不截断消息，不向 OpenAI 上游转发本地 `truncate` / `num_ctx` |
+| [#85 历史中的额外换行](https://github.com/ollama/ollama-vscode/pull/85) | 插件拼接相邻文本片段时不再额外加换行；代理收到的仍是字符串，无需重写文本。新增回归测试确保换行、用户消息和工具关联保持原样 |
+| [#98 停止聊天清理](https://github.com/ollama/ollama-vscode/pull/98) | 插件丢弃取消后的缓冲文本及工具调用。补齐代理取消链：在等待上游响应头之前就监听客户端断开，将取消信号传到上游 fetch、JSON 读取和重试等待；取消后不再重试 |
+
+取消修复覆盖 `/api/chat`、`/api/generate`、`/v1/chat/completions`，并统一用于两条 Ollama embeddings 路径；正常响应完成不会触发取消。既有流式断开销毁与超时策略继续保留。停止请求只能尽快关闭上游连接，不能保证提供商撤销已发生的计费。
+
+验证采用本地模拟服务：直连与 HTTP CONNECT 代理的响应头前取消、未完成 JSON 取消、重试等待取消、既有流中断及历史保真测试。未调用真实模型，未改动模型配置或密钥，未部署服务。
+
+### 2026-10-28 依赖安全更新
+
+运行依赖 Undici 从 6.25.0 升至 6.29.1，保留 6.x API 和现有 Node.js 要求；锁文件固定实际安装版本。[官方安全发布说明](https://github.com/nodejs/undici/releases/tag/v6.29.1)包含 TLS 校验、异常响应解码等修复。更新后 43 项本地模拟测试通过；当日查询 npm 官方漏洞批量接口，6.29.1 未命中已知公告。这不等于对 Node.js 运行时、操作系统或其他实例的全面安全审计。
+
+## 历史：0.0.12 → 0.0.13 核对与同步
 
 完整比较范围：[527f6dc...d5dd402](https://github.com/ollama/ollama-vscode/compare/527f6dc...d5dd402)。
 

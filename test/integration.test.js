@@ -5,6 +5,77 @@ const { join } = require('node:path');
 const { tmpdir } = require('node:os');
 const { createServer } = require('node:http');
 
+test('0.0.14 history preserves text and tool pairs without forwarding local context options', () => {
+  const { normalizeOllamaChatToOpenAI } = require('../dist/protocol/ollama-to-openai.js');
+  const content = 'const answer = 42;\n\nreturn answer;';
+  const { payload } = normalizeOllamaChatToOpenAI({
+    model: 'demo-model', stream: true, truncate: false, options: { num_ctx: 64000 },
+    messages: [
+      { role: 'user', content: 'Keep this question intact.' },
+      { role: 'assistant', content, tool_calls: [{ id: 'call_1', function: { name: 'lookup', arguments: { query: 'test' } } }] },
+      { role: 'tool', tool_call_id: 'call_1', content: '{"value":"result","extra":true}' },
+      { role: 'user', content: 'Continue.' },
+    ],
+  });
+  assert.equal(payload.messages.length, 4);
+  assert.equal(payload.messages[0].content, 'Keep this question intact.');
+  assert.equal(payload.messages[1].content, content);
+  assert.equal(payload.messages[1].tool_calls[0].id, 'call_1');
+  assert.equal(payload.messages[2].tool_call_id, 'call_1');
+  assert.equal(payload.messages[2].content, '{"value":"result","extra":true}');
+  assert.equal(payload.messages[3].content, 'Continue.');
+  assert.equal('truncate' in payload, false);
+  assert.equal('num_ctx' in payload, false);
+});
+
+for (const route of ['/api/chat', '/api/generate', '/v1/chat/completions', '/api/embed', '/api/embeddings']) {
+  test(`${route} cancels upstream before response headers without retrying`, { timeout: 5000 }, async (t) => {
+    const { loadAppConfig } = require('../dist/config/load.js');
+    const { createAppServer } = require('../dist/server.js');
+    const tempDir = mkdtempSync(join(tmpdir(), 'mollama-early-cancel-'));
+    let notifyReceived;
+    let notifyClosed;
+    const received = new Promise(resolve => { notifyReceived = resolve; });
+    const closed = new Promise(resolve => { notifyClosed = resolve; });
+    let requests = 0;
+    const upstream = createServer((req, res) => {
+      requests++;
+      req.resume();
+      res.once('close', notifyClosed);
+      notifyReceived();
+      // Deliberately never send headers, simulating a model still thinking.
+    });
+    const upstreamPort = await listen(upstream);
+    const config = loadAppConfig(createTestConfig(tempDir, upstreamPort));
+    config.models.providers.default.upstream.retry.attempts = 2;
+    const app = createAppServer(config);
+    const appPort = await listen(app);
+    t.after(async () => {
+      app.closeAllConnections();
+      upstream.closeAllConnections();
+      await Promise.all([new Promise(resolve => app.close(resolve)), new Promise(resolve => upstream.close(resolve))]);
+      rmSync(tempDir, { recursive: true, force: true });
+    });
+    const controller = new AbortController();
+    const pending = fetch(`http://127.0.0.1:${appPort}${route}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
+      body: JSON.stringify({ model: 'demo-model', stream: true, messages: [{ role: 'user', content: 'hi' }], prompt: 'hi', input: 'hi' }),
+    });
+    const rejected = assert.rejects(pending, { name: 'AbortError' });
+    await received;
+    controller.abort();
+    await rejected;
+    let timer;
+    try {
+      await Promise.race([closed, new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Upstream was not cancelled promptly')), 1000);
+      })]);
+    } finally { clearTimeout(timer); }
+    await new Promise(resolve => setTimeout(resolve, 100));
+    assert.equal(requests, 1);
+  });
+}
+
 function listen(server) {
   return new Promise((resolve) => {
     server.listen(0, '127.0.0.1', () => {

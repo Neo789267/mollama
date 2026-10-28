@@ -112,6 +112,7 @@ function resolveFrontendProfile(config: AppConfig, request: IncomingMessage): Fr
 }
 
 interface RequestContext {
+  signal: AbortSignal;
   config: AppConfig;
   logger: Logger;
   modelRegistry: ModelRegistry;
@@ -220,7 +221,7 @@ async function handleOllamaChatRoute(context: RequestContext): Promise<number> {
   const frontendProfile = resolveFrontendProfile(context.config, context.request);
   const normalized = normalizeOllamaChatToOpenAI(parsedBody);
 
-  const forwarded = await forwardOpenAIChatCompletions(context.config, context.modelRegistry, normalized.payload, frontendProfile);
+  const forwarded = await forwardOpenAIChatCompletions(context.config, context.modelRegistry, normalized.payload, frontendProfile, context.signal);
   const visibleModel = forwarded.model.displayName;
 
   if (forwarded.result.kind === 'stream') {
@@ -245,7 +246,7 @@ async function handleOllamaGenerateRoute(context: RequestContext): Promise<numbe
   const frontendProfile = resolveFrontendProfile(context.config, context.request);
   const normalized = normalizeOllamaGenerateToOpenAI(parsedBody);
 
-  const forwarded = await forwardOpenAIChatCompletions(context.config, context.modelRegistry, normalized.payload, frontendProfile);
+  const forwarded = await forwardOpenAIChatCompletions(context.config, context.modelRegistry, normalized.payload, frontendProfile, context.signal);
   const visibleModel = forwarded.model.displayName;
 
   if (forwarded.result.kind === 'stream') {
@@ -269,7 +270,7 @@ async function handleOllamaEmbedRoute(context: RequestContext): Promise<number> 
   const parsedBody = parseJsonBody(rawBody);
   const normalized = normalizeOllamaEmbedToOpenAI(parsedBody);
 
-  const forwarded = await forwardOpenAIEmbeddings(context.config, context.modelRegistry, normalized.payload);
+  const forwarded = await forwardOpenAIEmbeddings(context.config, context.modelRegistry, normalized.payload, context.signal);
   if (forwarded.result.kind === 'stream') {
     throw badGateway('Embedding endpoint must not return stream', 'invalid_upstream_embed_stream');
   }
@@ -291,7 +292,7 @@ async function handleOllamaEmbeddingsRoute(context: RequestContext): Promise<num
   const parsedBody = parseJsonBody(rawBody);
   const normalized = normalizeOllamaEmbeddingsToOpenAI(parsedBody);
 
-  const forwarded = await forwardOpenAIEmbeddings(context.config, context.modelRegistry, normalized.payload);
+  const forwarded = await forwardOpenAIEmbeddings(context.config, context.modelRegistry, normalized.payload, context.signal);
   if (forwarded.result.kind === 'stream') {
     throw badGateway('Embeddings endpoint must not return stream', 'invalid_upstream_embed_stream');
   }
@@ -313,7 +314,7 @@ async function handleOpenAIChatCompletionsRoute(context: RequestContext): Promis
   const parsedBody = parseJsonBody(rawBody);
   const frontendProfile = resolveFrontendProfile(context.config, context.request);
 
-  const forwarded = await forwardOpenAIChatCompletions(context.config, context.modelRegistry, parsedBody, frontendProfile);
+  const forwarded = await forwardOpenAIChatCompletions(context.config, context.modelRegistry, parsedBody, frontendProfile, context.signal);
   const provider = context.config.models.providers[forwarded.model.provider];
   const upstreamField = provider?.thinkingField ?? 'reasoning_content';
   const clientField = frontendProfile?.reasoningCompat;
@@ -394,6 +395,12 @@ export function createAppServer(config: AppConfig) {
   const modelRegistry = createModelRegistry(config.models.models);
 
   return createServer(async (request, response) => {
+    // Register before reading the request or awaiting upstream headers. A normal
+    // response finish must not cancel a successfully completed request.
+    const controller = new AbortController();
+    response.once('close', () => {
+      if (!response.writableEnded) controller.abort();
+    });
     const startedAt = Date.now();
     const requestId = typeof request.headers['x-request-id'] === 'string' ? request.headers['x-request-id'] : randomUUID();
     response.setHeader('x-request-id', requestId);
@@ -411,6 +418,7 @@ export function createAppServer(config: AppConfig) {
     try {
       const requestUrl = new URL(request.url ?? '/', `http://${request.headers.host ?? '127.0.0.1'}`);
       responseStatusCode = await dispatchRoute({
+        signal: controller.signal,
         config,
         logger,
         modelRegistry,
@@ -420,6 +428,11 @@ export function createAppServer(config: AppConfig) {
         requestId,
       });
     } catch (error) {
+      if (controller.signal.aborted) {
+        responseStatusCode = 499;
+        logger.info('request.client_disconnected', { requestId });
+        return;
+      }
       if (isAppError(error)) {
         responseStatusCode = error.statusCode;
         logger.error('request.error', { requestId, code: error.code, statusCode: error.statusCode, message: error.message });

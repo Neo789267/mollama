@@ -1,6 +1,6 @@
 # 单模型、多思考档位
 
-模型 API 核对日期：2026-10-05。客户端兼容性于 2026-10-17 复核至 ollama-vscode 0.0.13，官方 main `d5dd402`；原同步基线为 0.0.12 / `527f6dc`。
+模型 API 核对日期：2026-10-05。客户端兼容性于 2026-10-28 复核至 ollama-vscode 0.0.14，官方 main `8265bb2`；本次未修改提供商参数或默认档位。0.0.14 仍通过 `ollama.thinkingLevels` 设置档位，没有原生强度选择控件。
 
 每个实际模型只在目录中出现一次，通过 `ollama.thinkingLevels` 选择思考开关或强度。未设置时采用用户确认的默认：DeepSeek `high`、Kimi For Coding `max`。
 
